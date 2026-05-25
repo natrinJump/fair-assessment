@@ -48,12 +48,12 @@
         <h2>Run Assessment</h2>
         <div class="input-group">
             <div class="input-row">
-                <input type="text" id="doi-input"
-                    placeholder="Enter DOI, e.g. 10.5281/zenodo.3490058">
+                <input type="text" id="doi-input" list="doi-suggestions"
+                    placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
+                <datalist id="doi-suggestions"></datalist>
                 <select id="profile-select"></select>
-                <button type="button" class="btn btn-primary" onclick="runAssessment()">
-    Run Assessment
-</button>
+                <button type="button" class="btn btn-primary"
+                    onclick="runAssessment()">Run Assessment</button>
             </div>
         </div>
         <div id="message-area"></div>
@@ -100,12 +100,10 @@
             <div id="recommendations"></div>
 
             <div style="display:flex;gap:0.75rem;margin-top:1rem">
-                <button class="btn btn-secondary" onclick="downloadReport()">
-                    Download Report
-                </button>
-                <button type="button" class="btn btn-primary" onclick="runAssessment()">
-    Re-Run Assessment
-</button>
+                <button type="button" class="btn btn-secondary"
+                    onclick="downloadReport()">Download Report</button>
+                <button type="button" class="btn btn-primary"
+                    onclick="runAssessment()">Re-run Assessment</button>
             </div>
         </div>
     </div>
@@ -129,14 +127,23 @@ async function loadProfiles() {
     }
 }
 
+async function loadPreviousDOIs() {
+    try {
+        const history = await apiFetch('/history');
+        const dois = [...new Set(history.map(h => h.doi))];
+        const datalist = document.getElementById('doi-suggestions');
+        datalist.innerHTML = dois.map(doi =>
+            `<option value="${doi}">`
+        ).join('');
+    } catch(e) {}
+}
+
 async function runAssessment() {
-    console.log('runAssessment called');
     const doi = document.getElementById('doi-input').value.trim();
     const profile = document.getElementById('profile-select').value;
-    console.log('DOI:', doi, 'Profile:', profile);
 
     if (!doi) {
-        showError('message-area', 'Please enter a DOI');
+        showError('message-area', 'Please enter a DOI, Handle, or URL');
         return;
     }
 
@@ -145,16 +152,14 @@ async function runAssessment() {
     document.getElementById('results-container').style.display = 'none';
 
     try {
-        console.log('calling API...');
         const report = await apiFetch(
             `/assess/${encodeURIComponent(doi)}?profile=${encodeURIComponent(profile)}`
         );
-        console.log('report received:', report);
         lastReport = report;
         document.getElementById('message-area').innerHTML = '';
         renderReport(report);
+        loadPreviousDOIs();
     } catch(e) {
-        console.error('Assessment error:', e);
         showError('message-area', 'Assessment failed: ' + e.message);
     }
 }
@@ -198,11 +203,13 @@ function renderReport(report) {
     if (recs.length === 0) {
         recContainer.innerHTML =
             '<p style="font-size:0.875rem;color:#0f9d58">' +
-            'No recommendations — dataset meets all criteria.</p>';
+            'No recommendations — dataset meets all profile criteria.</p>';
     } else {
         recContainer.innerHTML = recs.map(r =>
-            `<div style="font-size:0.875rem;margin-bottom:0.35rem">
-                · ${r.recommendation}
+            `<div style="font-size:0.875rem;margin-bottom:0.5rem;
+                padding:0.5rem;background:#fafafa;border-radius:4px;
+                border-left:3px solid #db4437">
+                <strong>${r.metric_id}:</strong> ${r.recommendation}
             </div>`
         ).join('');
     }
@@ -217,11 +224,20 @@ function downloadReport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'fair-report-' + lastReport.doi.replace(/\//g, '-') + '.json';
+    a.download = 'fair-report-' +
+        lastReport.doi.replace(/\//g, '-') + '.json';
     a.click();
 }
 
+// prefill DOI if coming from history page
+const prefill = localStorage.getItem('prefillDoi');
+if (prefill) {
+    document.getElementById('doi-input').value = prefill;
+    localStorage.removeItem('prefillDoi');
+}
+
 loadProfiles();
+loadPreviousDOIs();
 </script>
 </body>
 </html>

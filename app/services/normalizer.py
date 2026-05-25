@@ -13,7 +13,7 @@ def normalize_datacite(raw: dict, doi: str) -> NormalizedMetadata:
     creators = attrs.get("creators", [])
     creator = creators[0].get("name") if creators else None
 
-    formats = attrs.get("formats", [])
+    formats = list(set(attrs.get("formats", [])))[:5]
 
     titles = attrs.get("titles", [])
     title = titles[0].get("title") if titles else None
@@ -59,3 +59,31 @@ def normalize_generic(raw: dict, doi: str) -> NormalizedMetadata:
         raw_identifier=doi,
         core=core
     )
+
+def normalize_ark(raw: dict, identifier: str) -> NormalizedMetadata:
+    data = raw.get("data", {})
+    core = CoreMetadata(
+        identifier=identifier,
+        title=data.get("title"),
+        description=data.get("description"),
+        creator=data.get("creator"),
+        license=data.get("license"),
+        formats=data.get("formats", []),
+        access_url=data.get("access_url", f"https://n2t.net/{identifier}"),
+        provenance_date=data.get("provenance_date"),
+    )
+    return NormalizedMetadata(source="ark", raw_identifier=identifier, core=core)
+
+def normalize_url(raw: dict, identifier: str) -> NormalizedMetadata:
+    data = raw.get("data", {})
+    core = CoreMetadata(
+        identifier=identifier,
+        title=data.get("title"),
+        description=data.get("description"),
+        creator=data.get("creator"),
+        license=data.get("license"),
+        formats=data.get("formats", []),
+        access_url=data.get("access_url", identifier),
+        provenance_date=data.get("provenance_date"),
+    )
+    return NormalizedMetadata(source="url", raw_identifier=identifier, core=core)

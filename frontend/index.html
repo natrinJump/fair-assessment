@@ -4,6 +4,70 @@
     <meta charset="UTF-8">
     <title>FAIR Assessment Tool</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .profile-card.create-new {
+            border: 2px dashed #1a73e8;
+            color: #1a73e8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+        }
+        .profile-card.create-new:hover {
+            background: #e8f0fe;
+        }
+        .profile-card.create-new .plus {
+            font-size: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal-box {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            width: 480px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-box h3 { margin-bottom: 1rem; font-size: 1rem; }
+        .form-row { margin-bottom: 0.75rem; }
+        .form-row label {
+            display: block;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+            color: #444;
+        }
+        .tag-input-row {
+            display: flex; gap: 0.5rem;
+        }
+        .tag-input-row input { flex: 1; margin-bottom: 0; }
+        .tags {
+            display: flex; flex-wrap: wrap;
+            gap: 0.35rem; margin-top: 0.35rem;
+        }
+        .tag {
+            background: #e8f0fe; color: #1a73e8;
+            font-size: 0.75rem; padding: 2px 8px;
+            border-radius: 12px; display: flex;
+            align-items: center; gap: 4px;
+        }
+        .tag button {
+            background: none; border: none;
+            color: #1a73e8; cursor: pointer;
+            font-size: 0.75rem; padding: 0;
+        }
+    </style>
 </head>
 <body>
 
@@ -17,6 +81,10 @@
 <div class="container">
     <div class="card">
         <h2>Select a Profile</h2>
+        <p style="font-size:0.875rem;color:#666;margin-bottom:1rem">
+            Choose an existing domain profile or create your own based on your
+            community's FAIR requirements.
+        </p>
         <div class="profile-grid" id="profile-grid">
             <div class="loading">Loading profiles...</div>
         </div>
@@ -26,9 +94,79 @@
             <ul id="summary-list"></ul>
         </div>
 
-        <div style="display:flex; gap:0.75rem">
-            <button class="btn btn-primary" onclick="continueToAssess()">Continue</button>
-            <button class="btn btn-secondary" onclick="editSelected()">Edit Profile</button>
+        <div style="display:flex; gap:0.75rem" id="action-buttons" style="display:none">
+            <button type="button" class="btn btn-primary"
+                onclick="continueToAssess()">Continue</button>
+            <button type="button" class="btn btn-secondary"
+                onclick="editSelected()">Edit Profile</button>
+            <button type="button" class="btn btn-danger"
+                onclick="deleteSelected()"
+                id="delete-btn" style="display:none">Delete Profile</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="create-modal">
+    <div class="modal-box">
+        <h3>Create New Profile</h3>
+        <div id="create-message"></div>
+
+        <div class="form-row">
+            <label>Profile Name *</label>
+            <input type="text" id="new-name" placeholder="e.g. My Custom Profile">
+        </div>
+        <div class="form-row">
+            <label>Domain *</label>
+            <input type="text" id="new-domain"
+                placeholder="e.g. marine_biology, climate_science">
+        </div>
+
+        <div class="form-row">
+            <label>Accepted Identifier Types</label>
+            <div class="tag-input-row">
+                <input type="text" id="new-id-input" placeholder="e.g. doi, ark, handle">
+                <button type="button" class="btn btn-secondary"
+                    onclick="addTag('identifiers', 'new-id-input', 'tags-id')">Add</button>
+            </div>
+            <div class="tags" id="tags-id"></div>
+        </div>
+
+        <div class="form-row">
+            <label>Required Metadata Fields</label>
+            <div class="tag-input-row">
+                <input type="text" id="new-meta-input"
+                    placeholder="e.g. title, license, creator">
+                <button type="button" class="btn btn-secondary"
+                    onclick="addTag('metadata', 'new-meta-input', 'tags-meta')">Add</button>
+            </div>
+            <div class="tags" id="tags-meta"></div>
+        </div>
+
+        <div class="form-row">
+            <label>Accepted File Formats</label>
+            <div class="tag-input-row">
+                <input type="text" id="new-fmt-input" placeholder="e.g. csv, json-ld, rdf">
+                <button type="button" class="btn btn-secondary"
+                    onclick="addTag('formats', 'new-fmt-input', 'tags-fmt')">Add</button>
+            </div>
+            <div class="tags" id="tags-fmt"></div>
+        </div>
+
+        <div class="form-row">
+            <label>Required Vocabulary (optional)</label>
+            <input type="text" id="new-vocab"
+                placeholder="e.g. AGROVOC, MeSH, ENVO">
+        </div>
+        <div class="form-row">
+            <label>Required License (optional)</label>
+            <input type="text" id="new-license" placeholder="e.g. CC-BY, CC0">
+        </div>
+
+        <div style="display:flex;gap:0.75rem;margin-top:1rem;justify-content:flex-end">
+            <button type="button" class="btn btn-secondary"
+                onclick="closeCreateModal()">Cancel</button>
+            <button type="button" class="btn btn-primary"
+                onclick="createProfile()">Create Profile</button>
         </div>
     </div>
 </div>
@@ -37,26 +175,40 @@
 <script>
 let selectedProfile = null;
 let profiles = [];
+let newProfileData = { identifiers: [], metadata: [], formats: [] };
 
 async function loadProfiles() {
     try {
         profiles = await apiFetch('/profiles');
-        const grid = document.getElementById('profile-grid');
-        grid.innerHTML = profiles.map(p => `
-            <div class="profile-card" onclick="selectProfile(${p.id})" id="profile-card-${p.id}">
-                <h3>${p.name}</h3>
-                <p>${p.domain}</p>
-            </div>
-        `).join('');
+        renderGrid();
     } catch(e) {
         document.getElementById('profile-grid').innerHTML =
             '<div class="error">Could not load profiles. Is the API running?</div>';
     }
 }
 
+function renderGrid() {
+    const grid = document.getElementById('profile-grid');
+    const cards = profiles.map(p => `
+        <div class="profile-card" onclick="selectProfile(${p.id})"
+            id="profile-card-${p.id}">
+            <h3>${p.name}</h3>
+            <p>${p.domain}</p>
+        </div>
+    `).join('');
+    const createCard = `
+        <div class="profile-card create-new" onclick="openCreateModal()">
+            <div class="plus">+</div>
+            <h3>Create New</h3>
+        </div>
+    `;
+    grid.innerHTML = cards + createCard;
+}
+
 function selectProfile(id) {
     selectedProfile = profiles.find(p => p.id === id);
-    document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.profile-card').forEach(c =>
+        c.classList.remove('selected'));
     document.getElementById('profile-card-' + id).classList.add('selected');
 
     const summary = document.getElementById('profile-summary');
@@ -66,28 +218,149 @@ function selectProfile(id) {
         <li>Identifiers: ${selectedProfile.accepted_identifiers.join(', ')}</li>
         <li>Formats: ${selectedProfile.accepted_formats.join(', ')}</li>
         <li>Required fields: ${selectedProfile.required_metadata_fields.join(', ')}</li>
-        ${selectedProfile.required_vocabulary ? `<li>Vocabulary: ${selectedProfile.required_vocabulary}</li>` : ''}
-        ${selectedProfile.required_license ? `<li>License: ${selectedProfile.required_license}</li>` : ''}
+        ${selectedProfile.required_vocabulary
+            ? `<li>Vocabulary: ${selectedProfile.required_vocabulary}</li>` : ''}
+        ${selectedProfile.required_license
+            ? `<li>License: ${selectedProfile.required_license}</li>` : ''}
     `;
+
+    document.getElementById('action-buttons').style.display = 'flex';
+    const isDefault = ['generic','agriculture','life_sciences',
+        'environmental','social_sciences'].includes(selectedProfile.domain);
+    document.getElementById('delete-btn').style.display =
+        isDefault ? 'none' : 'inline-block';
 
     localStorage.setItem('selectedProfile', JSON.stringify(selectedProfile));
 }
 
 function continueToAssess() {
-    if (!selectedProfile) {
-        alert('Please select a profile first');
-        return;
-    }
+    if (!selectedProfile) { alert('Please select a profile first'); return; }
     window.location.href = 'assess.html';
 }
 
 function editSelected() {
-    if (!selectedProfile) {
-        alert('Please select a profile first');
-        return;
-    }
+    if (!selectedProfile) { alert('Please select a profile first'); return; }
+    localStorage.setItem('editMode', 'edit');
     window.location.href = 'edit-profile.html';
 }
+
+async function deleteSelected() {
+    if (!selectedProfile) return;
+    if (!confirm(`Delete profile "${selectedProfile.name}"? This cannot be undone.`))
+        return;
+    try {
+        await apiFetch('/profiles/' + encodeURIComponent(selectedProfile.name), {
+            method: 'DELETE'
+        });
+        selectedProfile = null;
+        document.getElementById('profile-summary').style.display = 'none';
+        document.getElementById('action-buttons').style.display = 'none';
+        profiles = await apiFetch('/profiles');
+        renderGrid();
+    } catch(e) {
+        alert('Delete failed: ' + e.message);
+    }
+}
+
+function openCreateModal() {
+    newProfileData = { identifiers: [], metadata: [], formats: [] };
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-domain').value = '';
+    document.getElementById('new-vocab').value = '';
+    document.getElementById('new-license').value = '';
+    document.getElementById('tags-id').innerHTML = '';
+    document.getElementById('tags-meta').innerHTML = '';
+    document.getElementById('tags-fmt').innerHTML = '';
+    document.getElementById('create-message').innerHTML = '';
+    document.getElementById('create-modal').classList.add('show');
+}
+
+function closeCreateModal() {
+    document.getElementById('create-modal').classList.remove('show');
+}
+
+function addTag(type, inputId, tagsId) {
+    const input = document.getElementById(inputId);
+    const val = input.value.trim().toLowerCase();
+    if (!val) return;
+    if (newProfileData[type].includes(val)) {
+        input.value = ''; return;
+    }
+    newProfileData[type].push(val);
+    input.value = '';
+    renderTags(type, tagsId);
+}
+
+function removeTag(type, val, tagsId) {
+    newProfileData[type] = newProfileData[type].filter(v => v !== val);
+    const tagsMap = {
+        identifiers: 'tags-id',
+        metadata: 'tags-meta',
+        formats: 'tags-fmt'
+    };
+    renderTags(type, tagsMap[type]);
+}
+
+function renderTags(type, tagsId) {
+    const container = document.getElementById(tagsId);
+    container.innerHTML = newProfileData[type].map(v => `
+        <span class="tag">
+            ${v}
+            <button type="button" onclick="removeTag('${type}', '${v}', '${tagsId}')">×</button>
+        </span>
+    `).join('');
+}
+
+async function createProfile() {
+    const name = document.getElementById('new-name').value.trim();
+    const domain = document.getElementById('new-domain').value.trim();
+
+    if (!name || !domain) {
+        document.getElementById('create-message').innerHTML =
+            '<div class="error">Profile name and domain are required.</div>';
+        return;
+    }
+    if (newProfileData.identifiers.length === 0) {
+        document.getElementById('create-message').innerHTML =
+            '<div class="error">Add at least one identifier type.</div>';
+        return;
+    }
+
+    try {
+        const data = {
+            name,
+            domain,
+            accepted_identifiers: newProfileData.identifiers,
+            required_metadata_fields: newProfileData.metadata.length > 0
+                ? newProfileData.metadata
+                : ['title', 'description', 'creator', 'license'],
+            accepted_formats: newProfileData.formats,
+            required_vocabulary: document.getElementById('new-vocab').value || null,
+            required_license: document.getElementById('new-license').value || null,
+        };
+        const created = await apiFetch('/profiles', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        closeCreateModal();
+        profiles = await apiFetch('/profiles');
+        renderGrid();
+        setTimeout(() => selectProfile(created.id), 100);
+    } catch(e) {
+        document.getElementById('create-message').innerHTML =
+            '<div class="error">Failed to create: ' + e.message + '</div>';
+    }
+}
+
+document.getElementById('new-id-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTag('identifiers', 'new-id-input', 'tags-id');
+});
+document.getElementById('new-meta-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTag('metadata', 'new-meta-input', 'tags-meta');
+});
+document.getElementById('new-fmt-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTag('formats', 'new-fmt-input', 'tags-fmt');
+});
 
 loadProfiles();
 </script>

@@ -27,40 +27,71 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     if identifier:
         id_lower = identifier.lower()
         for accepted in profile.accepted_identifiers:
-            if accepted.lower() in id_lower or id_lower.startswith("10."):
+            accepted_lower = accepted.lower()
+            # check if identifier type matches
+            if accepted_lower == "doi" and id_lower.startswith("10."):
+                matched = True
+            elif accepted_lower == "handle" and (
+                id_lower.startswith("hdl:") or
+                id_lower.startswith("20.") or
+                id_lower.startswith("11.")
+            ):
+                matched = True
+            elif accepted_lower == "ark" and "ark:" in id_lower:
+                matched = True
+            elif accepted_lower in id_lower:
+                matched = True
+            else:
+                matched = False
+
+            if matched:
                 return MetricResult(
                     metric_id="F1",
                     principle="F",
                     priority="essential",
                     status="pass",
                     description="Dataset has a globally unique persistent identifier",
-                    evidence=f"Identifier found: {identifier}"
+                    evidence=f"Identifier found: {identifier} "
+                        f"(matches accepted type: {accepted})"
                 )
+
+        # identifier exists but type not accepted by profile
+        id_type = "doi" if identifier.startswith("10.") else \
+                  "ark" if "ark:" in id_lower else \
+                  "handle" if id_lower.startswith(("hdl:", "20.", "11.")) else \
+                  "unknown"
         return MetricResult(
             metric_id="F1",
             principle="F",
             priority="essential",
-            status="partial",
-            description="Dataset has an identifier but type not in accepted list",
-            evidence=f"Identifier found: {identifier}",
-            recommendation=f"Use one of the accepted identifier types: {profile.accepted_identifiers}"
+            status="fail",
+            description="Dataset has an identifier but its type is not accepted by this profile",
+            evidence=f"Identifier found: {identifier} (type: {id_type})",
+            recommendation=f"Identifier type '{id_type}' is not accepted. "
+                f"This profile only accepts: "
+                f"{', '.join(profile.accepted_identifiers)}. "
+                f"Either change the identifier type or update the profile."
         )
     return MetricResult(
         metric_id="F1",
         principle="F",
         priority="essential",
         status="fail",
-        description="No persistent identifier found",
-        recommendation="Add a DOI, Handle, or ARK identifier to your dataset"
+        description="No persistent identifier found in metadata",
+        recommendation=f"No identifier detected. Add one of the accepted "
+            f"identifier types: {', '.join(profile.accepted_identifiers)}"
     )
 
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
     missing = []
+    present = []
     for field in profile.required_metadata_fields:
         value = getattr(core, field, None)
         if not value:
             missing.append(field)
+        else:
+            present.append(field)
     if not missing:
         return MetricResult(
             metric_id="F2",
@@ -68,7 +99,7 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="pass",
             description="All required metadata fields are present",
-            evidence=f"Fields present: {profile.required_metadata_fields}"
+            evidence=f"Fields present: {', '.join(present)}"
         )
     if len(missing) < len(profile.required_metadata_fields):
         return MetricResult(
@@ -77,17 +108,21 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="partial",
             description="Some required metadata fields are missing",
-            evidence=f"Missing fields: {missing}",
-            recommendation=f"Add the following metadata fields: {missing}"
+            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
+            recommendation=f"The following required fields are missing from metadata: "
+                f"{', '.join(missing)}. "
+                f"This profile requires all of: "
+                f"{', '.join(profile.required_metadata_fields)}"
         )
     return MetricResult(
         metric_id="F2",
         principle="F",
         priority="essential",
         status="fail",
-        description="Required metadata fields are missing",
-        evidence=f"Missing fields: {missing}",
-        recommendation=f"Add the following metadata fields: {missing}"
+        description="All required metadata fields are missing",
+        evidence=f"Missing: {', '.join(missing)}",
+        recommendation=f"No required metadata fields detected. "
+            f"This profile requires: {', '.join(profile.required_metadata_fields)}"
     )
 
 def check_f3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
@@ -179,43 +214,78 @@ def check_a1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     )
 
 def check_a1_2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
-    url = metadata.core.access_url
-    if url:
+    # only meaningful for restricted datasets
+    license_val = metadata.core.license
+    access_url = metadata.core.access_url
+    # if openly licensed, this check is not applicable
+    open_licenses = ["cc0", "cc-by", "cc by", "public domain", "open"]
+    is_open = license_val and any(
+        l in license_val.lower() for l in open_licenses
+    )
+    if is_open:
         return MetricResult(
             metric_id="A1.2",
             principle="A",
             priority="useful",
             status="pass",
-            description="Data is accessible through a protocol that supports authentication",
-            evidence=f"Access URL present: {url}"
+            description="Dataset is openly licensed — authentication not required",
+            evidence=f"Open license detected: {license_val}"
+        )
+    if access_url:
+        return MetricResult(
+            metric_id="A1.2",
+            principle="A",
+            priority="useful",
+            status="partial",
+            description="Access URL present but authentication requirements unclear",
+            evidence=f"Access URL: {access_url}",
+            recommendation="Specify access rights and authentication requirements "
+                "in metadata if data access is restricted"
         )
     return MetricResult(
         metric_id="A1.2",
         principle="A",
         priority="useful",
         status="fail",
-        description="No access protocol information found",
-        recommendation="Provide access URL with authentication support if data is restricted"
+        description="No access information found",
+        recommendation="Add access rights information to metadata"
     )
 
 def check_a2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
-    if metadata.core.identifier:
+    # A2 should check if metadata is stored separately and persists
+    # We check if metadata was retrievable even without data download
+    # A stricter check: verify the identifier resolves to a metadata record
+    if metadata.core.identifier and metadata.core.access_url:
+        if metadata.core.title:  # metadata actually has content
+            return MetricResult(
+                metric_id="A2",
+                principle="A",
+                priority="essential",
+                status="pass",
+                description="Metadata is accessible independently of the data",
+                evidence=f"Metadata record retrieved successfully with title: "
+                    f"{metadata.core.title[:50]}"
+            )
         return MetricResult(
             metric_id="A2",
             principle="A",
             priority="essential",
-            status="pass",
-            description="Metadata remains accessible even if data is unavailable",
-            evidence="Metadata retrieved successfully via identifier"
+            status="partial",
+            description="Identifier resolves but metadata content is minimal",
+            evidence="Identifier resolves but limited metadata retrieved",
+            recommendation="Ensure rich metadata is stored and accessible "
+                "independently of the data files"
         )
     return MetricResult(
         metric_id="A2",
         principle="A",
         priority="essential",
         status="fail",
-        description="Cannot confirm metadata persistence",
-        recommendation="Ensure metadata is stored separately from the data"
+        description="Cannot confirm metadata persistence independently of data",
+        recommendation="Ensure metadata remains accessible even if data "
+            "is no longer available"
     )
+
 
 def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     formats = [f.lower() for f in metadata.core.formats]
@@ -228,7 +298,7 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="important",
             status="pass",
             description="Data is provided in an accepted machine-readable format",
-            evidence=f"Formats found: {matched}"
+            evidence=f"Format detected: {', '.join(matched)}"
         )
     if formats:
         return MetricResult(
@@ -236,9 +306,10 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             principle="I",
             priority="important",
             status="partial",
-            description="Data format not in accepted list",
-            evidence=f"Formats found: {formats}",
-            recommendation=f"Use one of the accepted formats: {profile.accepted_formats}"
+            description="Data format present but not in accepted list",
+            evidence=f"Current format: {', '.join(formats)}",
+            recommendation=f"Current format '{', '.join(formats)}' is not accepted. "
+                f"This profile requires one of: {', '.join(profile.accepted_formats)}"
         )
     return MetricResult(
         metric_id="I1",
@@ -246,34 +317,51 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         priority="important",
         status="fail",
         description="No file format information found in metadata",
-        recommendation=f"Specify the data format. Accepted: {profile.accepted_formats}"
+        recommendation=f"No format detected in metadata. "
+            f"Specify the data format — this profile accepts: "
+            f"{', '.join(profile.accepted_formats)}"
     )
 
 def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     vocabulary = profile.required_vocabulary
     if not vocabulary:
+        # no required vocabulary — check if ANY known vocabulary is used
+        known_vocabs = ["schema.org", "dcterms", "dcat", "skos",
+                        "owl", "rdf", "foaf", "prov"]
+        custom_str = str(metadata.custom).lower()
+        core_str = str(metadata.core).lower()
+        found = [v for v in known_vocabs
+                 if v in custom_str or v in core_str]
+        if found:
+            return MetricResult(
+                metric_id="I2",
+                principle="I",
+                priority="important",
+                status="pass",
+                description="Metadata uses known semantic vocabulary",
+                evidence=f"Vocabulary references found: {', '.join(found)}"
+            )
         return MetricResult(
             metric_id="I2",
             principle="I",
             priority="important",
-            status="pass",
-            description="No specific vocabulary required by this profile",
-            evidence="Vocabulary requirement: none"
+            status="partial",
+            description="No specific vocabulary required but none detected",
+            evidence="No known vocabulary references found in metadata",
+            recommendation="Consider using a standard vocabulary such as "
+                "schema.org, DCAT, or Dublin Core to improve interoperability"
         )
     custom = metadata.custom
     vocab_lower = vocabulary.lower()
-    found = any(
-        vocab_lower in str(v).lower()
-        for v in custom.values()
-    )
+    found = any(vocab_lower in str(v).lower() for v in custom.values())
     if found:
         return MetricResult(
             metric_id="I2",
             principle="I",
             priority="important",
             status="pass",
-            description=f"Metadata uses FAIR-compliant vocabulary: {vocabulary}",
-            evidence=f"Vocabulary reference found in metadata"
+            description=f"Metadata uses required vocabulary: {vocabulary}",
+            evidence=f"Vocabulary reference to {vocabulary} found in metadata"
         )
     return MetricResult(
         metric_id="I2",
@@ -281,31 +369,37 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         priority="important",
         status="fail",
         description=f"Required vocabulary not detected in metadata",
-        recommendation=f"Use terms from the {vocabulary} vocabulary in your metadata"
+        evidence=f"No reference to {vocabulary} found",
+        recommendation=f"This profile requires {vocabulary} vocabulary. "
+            f"Ensure metadata terms reference {vocabulary} concepts"
     )
 
 def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
-    core = metadata.core
-    has_references = (
-        core.access_url is not None or
-        core.identifier is not None
+    # check for actual related identifiers in metadata, not just access_url
+    custom = metadata.custom
+    has_related = any(
+        k in str(custom).lower()
+        for k in ["related", "reference", "citation", "ispartof",
+                  "isderivedfrom", "iscitedby"]
     )
-    if has_references:
+    if has_related:
         return MetricResult(
             metric_id="I3",
             principle="I",
             priority="important",
             status="pass",
-            description="Metadata includes references to related resources",
-            evidence=f"Identifier and access URL present as qualified references"
+            description="Metadata includes qualified references to related resources",
+            evidence="Related identifier references found in metadata"
         )
     return MetricResult(
         metric_id="I3",
         principle="I",
         priority="important",
         status="fail",
-        description="No qualified references found in metadata",
-        recommendation="Add references to related datasets, publications, or resources"
+        description="No qualified references to related resources found",
+        evidence="No relatedIdentifiers or citation links detected in metadata",
+        recommendation="Add qualified references to related datasets, "
+            "publications, or derived resources using relatedIdentifiers"
     )
 
 def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
@@ -334,7 +428,19 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     license_val = metadata.core.license
+    required = profile.required_license
     if license_val:
+        if required and required.lower() not in license_val.lower():
+            return MetricResult(
+                metric_id="R1.1",
+                principle="R",
+                priority="essential",
+                status="partial",
+                description="License found but does not match required license",
+                evidence=f"Current license: {license_val}",
+                recommendation=f"License '{license_val}' detected but this profile "
+                    f"requires: {required}"
+            )
         return MetricResult(
             metric_id="R1.1",
             principle="R",
@@ -349,54 +455,79 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         priority="essential",
         status="fail",
         description="No license found in metadata",
-        recommendation="Add a machine-readable license (e.g. CC-BY, CC0)"
+        recommendation=f"No license detected. "
+            f"Add a machine-readable license"
+            + (f" — this profile requires: {required}" if required else
+               " (e.g. CC-BY, CC0, MIT)")
     )
 
 def check_r1_2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
-    if metadata.core.creator and metadata.core.provenance_date:
+    core = metadata.core
+    has_creator = bool(core.creator)
+    has_date = bool(core.provenance_date)
+    has_description = bool(core.description)
+
+    if has_creator and has_date and has_description:
         return MetricResult(
             metric_id="R1.2",
             principle="R",
             priority="important",
             status="pass",
-            description="Provenance information is present",
-            evidence=f"Creator: {metadata.core.creator}, Date: {metadata.core.provenance_date}"
+            description="Full provenance information present",
+            evidence=f"Creator: {core.creator}, "
+                f"Date: {core.provenance_date}, Description: present"
         )
     missing = []
-    if not metadata.core.creator:
-        missing.append("creator")
-    if not metadata.core.provenance_date:
-        missing.append("provenance date")
+    if not has_creator: missing.append("creator")
+    if not has_date: missing.append("provenance date")
+    if not has_description: missing.append("description/methodology")
+
+    status = "partial" if (has_creator or has_date) else "fail"
     return MetricResult(
         metric_id="R1.2",
         principle="R",
         priority="important",
-        status="partial" if metadata.core.creator or metadata.core.provenance_date else "fail",
+        status=status,
         description="Incomplete provenance information",
-        evidence=f"Missing: {missing}",
-        recommendation=f"Add the following provenance fields: {missing}"
+        evidence=f"Present: {[f for f in ['creator','date','description'] if getattr(core, f if f != 'date' else 'provenance_date', None)]}",
+        recommendation=f"Missing provenance fields: {', '.join(missing)}"
     )
 
 def check_r1_3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     formats = [f.lower() for f in metadata.core.formats]
     accepted = [f.lower() for f in profile.accepted_formats]
-    if any(a in f for f in formats for a in accepted):
+    matched = [f for f in formats if any(a in f for a in accepted)]
+    if matched:
         return MetricResult(
             metric_id="R1.3",
             principle="R",
             priority="essential",
             status="pass",
             description="Data follows community standards for format",
-            evidence=f"Standard format detected: {formats}"
+            evidence=f"Standard format detected: {', '.join(matched)}"
+        )
+    if formats:
+        return MetricResult(
+            metric_id="R1.3",
+            principle="R",
+            priority="essential",
+            status="fail",
+            description="Data format does not match community standards for this profile",
+            evidence=f"Current format: {', '.join(formats)}",
+            recommendation=f"Current format '{', '.join(formats)}' does not meet "
+                f"community standards for this profile. "
+                f"Required format(s): {', '.join(profile.accepted_formats)}"
         )
     return MetricResult(
         metric_id="R1.3",
         principle="R",
         priority="essential",
         status="fail",
-        description="Data format does not follow community standards",
-        recommendation=f"Use a community-standard format such as: {profile.accepted_formats}"
+        description="No format information found to verify community standards",
+        recommendation=f"No format metadata detected. "
+            f"This profile requires: {', '.join(profile.accepted_formats)}"
     )
+
 
 METRIC_WEIGHTS = {
     "F1": 1.0,    # Essential — RDA-F1-01M/02M

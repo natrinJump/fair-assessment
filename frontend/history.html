@@ -4,6 +4,125 @@
     <meta charset="UTF-8">
     <title>History - FAIR Assessment Tool</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .run-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            overflow: hidden;
+        }
+        .run-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            background: white;
+            transition: background 0.15s;
+        }
+        .run-header:hover { background: #f8f9fa; }
+        .run-header.expanded { background: #e8f0fe; }
+        .run-score {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1a73e8;
+        }
+        .run-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .btn-sm {
+            padding: 0.3rem 0.75rem;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-sm-secondary {
+            background: white;
+            color: #1a73e8;
+            border: 1px solid #1a73e8;
+        }
+        .btn-sm-secondary:hover { background: #e8f0fe; }
+        .btn-sm-danger {
+            background: white;
+            color: #d93025;
+            border: 1px solid #d93025;
+        }
+        .btn-sm-danger:hover { background: #fce8e6; }
+        .btn-sm-pdf {
+            background: white;
+            color: #0f9d58;
+            border: 1px solid #0f9d58;
+        }
+        .btn-sm-pdf:hover { background: #e6f4ea; }
+        .run-details {
+            display: none;
+            padding: 1rem;
+            border-top: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+        .run-details.show { display: block; }
+        .mini-scores {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .mini-score {
+            text-align: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            background: white;
+            border: 1px solid #e0e0e0;
+        }
+        .mini-score .label {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .mini-score .value {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .mini-score.overall .value { color: #1a73e8; }
+        .mini-score.f .value { color: #0f9d58; }
+        .mini-score.a .value { color: #f4b400; }
+        .mini-score.i .value { color: #db4437; }
+        .mini-score.r .value { color: #9c27b0; }
+        .metric-mini {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0;
+            font-size: 0.8rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .metric-mini:last-child { border-bottom: none; }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot.pass { background: #0f9d58; }
+        .dot.partial { background: #f4b400; }
+        .dot.fail { background: #db4437; }
+        .metric-mini .mid-text { flex: 1; color: #444; }
+        .metric-mini .rec {
+            font-size: 0.75rem;
+            color: #d93025;
+            margin-top: 0.2rem;
+        }
+
+        @media print {
+            nav, .no-print { display: none !important; }
+            body { background: white; }
+            .container { max-width: 100%; margin: 0; padding: 0; }
+            .run-details { display: block !important; }
+            .card { box-shadow: none; border: 1px solid #ddd; }
+        }
+    </style>
 </head>
 <body>
 
@@ -15,12 +134,14 @@
 </nav>
 
 <div class="container">
-    <div class="card">
+    <div class="card no-print">
         <h2>Assessment History</h2>
-        <div class="doi-input-row">
+        <div style="display:flex;gap:0.75rem;align-items:center">
             <input type="text" id="doi-filter"
-                placeholder="Filter by DOI (leave empty to see all)">
-            <button class="btn btn-primary" onclick="loadHistory()">Search</button>
+                placeholder="Filter by DOI (leave empty to see all)"
+                style="flex:1;margin-bottom:0">
+            <button type="button" class="btn btn-primary"
+                onclick="loadHistory()">Search</button>
         </div>
     </div>
 
@@ -31,99 +152,254 @@
 
 <script src="app.js"></script>
 <script>
+let allHistory = [];
+let expandedRunId = null;
+
 async function loadHistory() {
     const doi = document.getElementById('doi-filter').value.trim();
     const container = document.getElementById('history-container');
     container.innerHTML = '<div class="loading">Loading...</div>';
 
     try {
-        const path = doi ? `/history/${encodeURIComponent(doi)}` : '/history';
-        const history = await apiFetch(path);
+        const path = doi
+            ? `/history/${encodeURIComponent(doi)}`
+            : '/history';
+        allHistory = await apiFetch(path);
 
-        if (!history.length) {
-            container.innerHTML = '<div class="card">No assessments found.</div>';
+        if (!allHistory.length) {
+            container.innerHTML =
+                '<div class="card">No assessments found.</div>';
             return;
         }
 
         const grouped = {};
-        history.forEach(h => {
+        allHistory.forEach(h => {
             if (!grouped[h.doi]) grouped[h.doi] = [];
             grouped[h.doi].push(h);
         });
 
         container.innerHTML = Object.entries(grouped).map(([doi, runs]) => `
             <div class="card">
-                <h2 style="font-size:0.9rem;margin-bottom:0.75rem">${doi}</h2>
+                <div style="display:flex;justify-content:space-between;
+                    align-items:center;margin-bottom:0.75rem">
+                    <h2 style="font-size:0.9rem;margin:0">${doi}</h2>
+                    <div style="display:flex;gap:0.5rem">
+                        <button type="button" class="btn-sm btn-sm-secondary no-print"
+                            onclick="exportAllJSON('${doi}')">
+                            Export all JSON
+                        </button>
+                        <button type="button" class="btn-sm btn-sm-secondary no-print"
+                            onclick="runNew('${doi}')">
+                            Run New Assessment
+                        </button>
+                    </div>
+                </div>
+
                 ${runs.map((run, i) => {
-                    const prev = runs[i - 1];
+                    const prev = runs[i + 1];
                     const trend = prev
                         ? run.overall_score > prev.overall_score
                             ? '<span class="history-trend up">↑ improved</span>'
                             : run.overall_score < prev.overall_score
                                 ? '<span class="history-trend down">↓ dropped</span>'
                                 : '<span class="history-trend">→ no change</span>'
-                        : '';
+                        : '<span style="font-size:0.75rem;color:#999">initial run</span>';
+
                     return `
-                        <div class="history-item" onclick="viewRun('${doi}', ${i})">
-                            <div>
-                                <div style="font-size:0.875rem;font-weight:500">
-                                    Run ${i + 1} — ${run.profile_name}
+                        <div class="run-item" id="run-item-${run.id}">
+                            <div class="run-header" id="run-header-${run.id}"
+                                onclick="toggleRun(${run.id})">
+                                <div>
+                                    <div style="font-size:0.875rem;font-weight:500">
+                                        Run ${runs.length - i} — ${run.profile_name}
+                                    </div>
+                                    <div style="font-size:0.75rem;color:#666;margin-top:2px">
+                                        ${formatDate(run.created_at)}
+                                    </div>
+                                    <div style="margin-top:4px">${trend}</div>
                                 </div>
-                                <div style="font-size:0.75rem;color:#666">
-                                    ${formatDate(run.created_at)}
+                                <div style="display:flex;align-items:center;gap:1rem">
+                                    <div style="text-align:right">
+                                        <div class="run-score">
+                                            ${formatScore(run.overall_score)}
+                                        </div>
+                                        <div style="font-size:0.72rem;color:#666">
+                                            F:${Math.round(run.f_score)}
+                                            A:${Math.round(run.a_score)}
+                                            I:${Math.round(run.i_score)}
+                                            R:${Math.round(run.r_score)}
+                                        </div>
+                                    </div>
+                                    <div class="run-actions no-print"
+                                        onclick="event.stopPropagation()">
+                                        <button type="button"
+                                            class="btn-sm btn-sm-pdf"
+                                            onclick="exportPDF(${run.id})">
+                                            PDF
+                                        </button>
+                                        <button type="button"
+                                            class="btn-sm btn-sm-secondary"
+                                            onclick="exportJSON(${run.id})">
+                                            JSON
+                                        </button>
+                                        <button type="button"
+                                            class="btn-sm btn-sm-danger"
+                                            onclick="deleteRun(${run.id})">
+                                            Delete
+                                        </button>
+                                    </div>
                                 </div>
-                                ${trend}
                             </div>
-                            <div style="text-align:right">
-                                <div class="history-score">${formatScore(run.overall_score)}</div>
-                                <div style="font-size:0.75rem;color:#666">
-                                    F:${Math.round(run.f_score)}
-                                    A:${Math.round(run.a_score)}
-                                    I:${Math.round(run.i_score)}
-                                    R:${Math.round(run.r_score)}
-                                </div>
+                            <div class="run-details" id="run-details-${run.id}">
+                                ${renderRunDetails(run)}
                             </div>
                         </div>
                     `;
                 }).join('')}
-                <div style="display:flex;gap:0.75rem;margin-top:0.75rem">
-                    <button class="btn btn-secondary"
-                        onclick="exportHistory('${doi}')">Export Report</button>
-                    <button class="btn btn-primary"
-                        onclick="runNew('${doi}')">Run New Assessment</button>
-                </div>
             </div>
         `).join('');
 
     } catch(e) {
-        container.innerHTML = `<div class="error">No history found: ${e.message}</div>`;
+        container.innerHTML =
+            `<div class="error">No history found: ${e.message}</div>`;
     }
 }
 
-function viewRun(doi, index) {
-    window.location.href = `assess.html`;
-    localStorage.setItem('viewDoi', doi);
+function renderRunDetails(run) {
+    if (!run.results) return '<p style="color:#666;font-size:0.875rem">No details available.</p>';
+
+    const scoreHtml = `
+        <div class="mini-scores">
+            <div class="mini-score overall">
+                <div class="label">Overall</div>
+                <div class="value">${formatScore(run.overall_score)}</div>
+            </div>
+            <div class="mini-score f">
+                <div class="label">Findable</div>
+                <div class="value">${formatScore(run.f_score)}</div>
+            </div>
+            <div class="mini-score a">
+                <div class="label">Accessible</div>
+                <div class="value">${formatScore(run.a_score)}</div>
+            </div>
+            <div class="mini-score i">
+                <div class="label">Interoperable</div>
+                <div class="value">${formatScore(run.i_score)}</div>
+            </div>
+            <div class="mini-score r">
+                <div class="label">Reusable</div>
+                <div class="value">${formatScore(run.r_score)}</div>
+            </div>
+        </div>
+    `;
+
+    const metricsHtml = run.results.map(r => `
+        <div class="metric-mini">
+            <div class="dot ${r.status}"></div>
+            <div>
+                <div class="mid-text">
+                    <strong>${r.metric_id}</strong> —
+                    ${r.description}
+                    <span style="font-size:0.7rem;color:#888">(${r.priority})</span>
+                </div>
+                ${r.evidence
+                    ? `<div style="font-size:0.75rem;color:#555;margin-top:2px">
+                        ✓ ${r.evidence}</div>` : ''}
+                ${r.recommendation
+                    ? `<div class="rec">→ ${r.recommendation}</div>` : ''}
+            </div>
+        </div>
+    `).join('');
+
+    const recs = run.results.filter(r => r.recommendation);
+    const recsHtml = recs.length > 0
+        ? `<div style="margin-top:0.75rem;padding-top:0.75rem;
+            border-top:1px solid #e0e0e0">
+            <div style="font-size:0.8rem;font-weight:600;margin-bottom:0.5rem">
+                Recommendations:
+            </div>
+            ${recs.map(r =>
+                `<div style="font-size:0.8rem;color:#d93025;margin-bottom:0.25rem">
+                    · ${r.recommendation}
+                </div>`
+            ).join('')}
+          </div>`
+        : '';
+
+    return scoreHtml + metricsHtml + recsHtml;
 }
 
-function runNew(doi) {
-    localStorage.setItem('selectedDoi', doi);
-    document.getElementById('doi-filter').value = doi;
-    window.location.href = 'assess.html';
+function toggleRun(id) {
+    const details = document.getElementById('run-details-' + id);
+    const header = document.getElementById('run-header-' + id);
+    const isOpen = details.classList.contains('show');
+    document.querySelectorAll('.run-details').forEach(d =>
+        d.classList.remove('show'));
+    document.querySelectorAll('.run-header').forEach(h =>
+        h.classList.remove('expanded'));
+    if (!isOpen) {
+        details.classList.add('show');
+        header.classList.add('expanded');
+        expandedRunId = id;
+    } else {
+        expandedRunId = null;
+    }
 }
 
-async function exportHistory(doi) {
+async function deleteRun(id) {
+    if (!confirm('Delete this assessment run? This cannot be undone.')) return;
     try {
-        const history = await apiFetch(`/history/${encodeURIComponent(doi)}`);
+        await apiFetch('/history/run/' + id, { method: 'DELETE' });
+        loadHistory();
+    } catch(e) {
+        alert('Delete failed: ' + e.message);
+    }
+}
+
+function exportJSON(id) {
+    const run = allHistory.find(h => h.id === id);
+    if (!run) return;
+    const blob = new Blob([JSON.stringify(run, null, 2)],
+        { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fair-run-' + id + '-' +
+        run.doi.replace(/\//g, '-') + '.json';
+    a.click();
+}
+
+async function exportAllJSON(doi) {
+    try {
+        const history = await apiFetch(
+            `/history/${encodeURIComponent(doi)}`);
         const blob = new Blob([JSON.stringify(history, null, 2)],
             { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `history-${doi.replace(/\//g, '-')}.json`;
+        a.download = 'fair-history-' + doi.replace(/\//g, '-') + '.json';
         a.click();
     } catch(e) {
         alert('Export failed: ' + e.message);
     }
+}
+
+function exportPDF(id) {
+    const run = allHistory.find(h => h.id === id);
+    if (!run) return;
+    document.querySelectorAll('.run-details').forEach(d =>
+        d.classList.remove('show'));
+    document.getElementById('run-details-' + id).classList.add('show');
+    document.querySelectorAll('.run-header').forEach(h =>
+        h.classList.remove('expanded'));
+    document.getElementById('run-header-' + id).classList.add('expanded');
+    setTimeout(() => window.print(), 200);
+}
+
+function runNew(doi) {
+    window.location.href = 'assess.html';
+    localStorage.setItem('prefillDoi', doi);
 }
 
 loadHistory();

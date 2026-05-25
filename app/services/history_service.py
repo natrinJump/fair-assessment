@@ -27,21 +27,23 @@ def get_history_by_doi(doi: str):
             .where(AssessmentHistoryDB.doi == doi)
             .order_by(AssessmentHistoryDB.created_at)
         ).all()
-        return [
-            {
-                "id": r.id,
-                "doi": r.doi,
-                "profile_name": r.profile_name,
-                "overall_score": r.overall_score,
-                "f_score": r.f_score,
-                "a_score": r.a_score,
-                "i_score": r.i_score,
-                "r_score": r.r_score,
-                "created_at": r.created_at,
-                "results": json.loads(r.results_json),
-            }
-            for r in records
-        ]
+        return [_to_dict(r) for r in records]
+
+def get_assessment_by_id(id: int):
+    with Session(engine) as session:
+        record = session.get(AssessmentHistoryDB, id)
+        if not record:
+            return None
+        return _to_dict(record)
+
+def delete_assessment(id: int) -> bool:
+    with Session(engine) as session:
+        record = session.get(AssessmentHistoryDB, id)
+        if not record:
+            return False
+        session.delete(record)
+        session.commit()
+        return True
 
 def get_all_history():
     with Session(engine) as session:
@@ -49,13 +51,18 @@ def get_all_history():
             select(AssessmentHistoryDB)
             .order_by(AssessmentHistoryDB.created_at.desc())
         ).all()
-        return [
-            {
-                "id": r.id,
-                "doi": r.doi,
-                "profile_name": r.profile_name,
-                "overall_score": r.overall_score,
-                "created_at": r.created_at,
-            }
-            for r in records
-        ]
+        return [_to_dict(r) for r in records]
+
+def _to_dict(r: AssessmentHistoryDB):
+    return {
+        "id": r.id,
+        "doi": r.doi,
+        "profile_name": r.profile_name,
+        "overall_score": r.overall_score,
+        "f_score": r.f_score,
+        "a_score": r.a_score,
+        "i_score": r.i_score,
+        "r_score": r.r_score,
+        "created_at": r.created_at,
+        "results": json.loads(r.results_json),
+    }
