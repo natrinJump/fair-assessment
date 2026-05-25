@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Profile - FAIR Assessment Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <h1>FAIR Assessment Tool</h1>
+    <a href="index.html">Profiles</a>
+    <a href="assess.html">Assess</a>
+    <a href="history.html">History</a>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <h2 id="profile-title">Edit Profile</h2>
+        <div id="message-area"></div>
+
+        <div style="position:relative">
+            <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:#444">FINDABLE</h3>
+            <div class="checkbox-group">
+                <label>Identifier Requirements:</label>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="req-one-id">
+                    <span>Must have at least one</span>
+                </div>
+                <div id="identifier-list"></div>
+                <button class="add-link" onclick="showModal('identifier')">+ Add Identifier</button>
+            </div>
+
+            <hr class="section-divider">
+            <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:#444">INTEROPERABLE</h3>
+            <div class="checkbox-group">
+                <label>File Format Requirements:</label>
+                <div id="format-list"></div>
+                <button class="add-link" onclick="showModal('format')">+ Add Format</button>
+            </div>
+
+            <div class="checkbox-group">
+                <label>Metadata Requirements:</label>
+                <div id="metadata-list"></div>
+                <button class="add-link" onclick="showModal('metadata')">+ Add Field</button>
+            </div>
+
+            <hr class="section-divider">
+            <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:1rem;color:#444">REUSABLE</h3>
+            <div class="checkbox-group">
+                <label>Vocabulary:</label>
+                <input type="text" id="vocabulary-input" placeholder="e.g. AGROVOC, MeSH, ENVO">
+            </div>
+            <div class="checkbox-group">
+                <label>Required License:</label>
+                <input type="text" id="license-input" placeholder="e.g. CC-BY, CC0">
+            </div>
+
+            <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Cancel</button>
+            </div>
+
+            <div id="modal-container" style="position:absolute;top:0;left:0;width:100%;height:100%">
+                <div class="modal-overlay" id="modal-overlay">
+                    <div class="modal">
+                        <h3 id="modal-title">Add Item</h3>
+                        <label style="font-size:0.875rem;display:block;margin-bottom:0.25rem">Name:</label>
+                        <input type="text" id="modal-name" placeholder="e.g. ARK, NetCDF">
+                        <label style="font-size:0.875rem;display:block;margin-bottom:0.25rem">Match type:</label>
+                        <select id="modal-match">
+                            <option value="starts_with">Starts with</option>
+                            <option value="contains">Contains</option>
+                            <option value="exact">Exact match</option>
+                        </select>
+                        <label style="font-size:0.875rem;display:block;margin-bottom:0.25rem">Value:</label>
+                        <input type="text" id="modal-value" placeholder="e.g. ark:">
+                        <label style="font-size:0.875rem;display:block;margin-bottom:0.25rem">Description:</label>
+                        <input type="text" id="modal-desc" placeholder="Optional description">
+                        <div class="modal-buttons">
+                            <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
+                            <button class="btn btn-primary" onclick="saveModalItem()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let profile = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
+let currentModalType = null;
+
+let identifiers = [...(profile.accepted_identifiers || [])];
+let formats = [...(profile.accepted_formats || [])];
+let metadataFields = [...(profile.required_metadata_fields || [])];
+
+function renderCheckboxes(items, containerId, type) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = items.map((item, i) => `
+        <div class="checkbox-item">
+            <input type="checkbox" checked id="${type}-${i}">
+            <span>${item}</span>
+            <button onclick="removeItem('${type}', ${i})"
+                style="background:none;border:none;color:#d93025;cursor:pointer;font-size:0.8rem;margin-left:0.5rem">×</button>
+        </div>
+    `).join('');
+}
+
+function removeItem(type, index) {
+    if (type === 'identifier') identifiers.splice(index, 1);
+    if (type === 'format') formats.splice(index, 1);
+    if (type === 'metadata') metadataFields.splice(index, 1);
+    renderAll();
+}
+
+function renderAll() {
+    renderCheckboxes(identifiers, 'identifier-list', 'identifier');
+    renderCheckboxes(formats, 'format-list', 'format');
+    renderCheckboxes(metadataFields, 'metadata-list', 'metadata');
+}
+
+function showModal(type) {
+    currentModalType = type;
+    const titles = {
+        identifier: 'Add Identifier Type',
+        format: 'Add File Format',
+        metadata: 'Add Metadata Field'
+    };
+    document.getElementById('modal-title').textContent = titles[type];
+    document.getElementById('modal-name').value = '';
+    document.getElementById('modal-value').value = '';
+    document.getElementById('modal-desc').value = '';
+    document.getElementById('modal-overlay').classList.add('show');
+}
+
+function hideModal() {
+    document.getElementById('modal-overlay').classList.remove('show');
+}
+
+function saveModalItem() {
+    const name = document.getElementById('modal-name').value.trim();
+    if (!name) { alert('Please enter a name'); return; }
+    if (currentModalType === 'identifier') identifiers.push(name.toLowerCase());
+    if (currentModalType === 'format') formats.push(name.toLowerCase());
+    if (currentModalType === 'metadata') metadataFields.push(name.toLowerCase());
+    hideModal();
+    renderAll();
+}
+
+async function saveProfile() {
+    try {
+        const updated = {
+            accepted_identifiers: identifiers,
+            accepted_formats: formats,
+            required_metadata_fields: metadataFields,
+            required_vocabulary: document.getElementById('vocabulary-input').value || null,
+            required_license: document.getElementById('license-input').value || null,
+        };
+        await apiFetch('/profiles/' + encodeURIComponent(profile.name), {
+            method: 'PUT',
+            body: JSON.stringify(updated)
+        });
+        localStorage.setItem('selectedProfile', JSON.stringify({...profile, ...updated}));
+        showSuccess('message-area', 'Profile saved successfully');
+        setTimeout(() => window.location.href = 'index.html', 1000);
+    } catch(e) {
+        showError('message-area', 'Failed to save: ' + e.message);
+    }
+}
+
+document.getElementById('profile-title').textContent = 'Edit Profile: ' + (profile.name || '');
+document.getElementById('vocabulary-input').value = profile.required_vocabulary || '';
+document.getElementById('license-input').value = profile.required_license || '';
+renderAll();
+</script>
+</body>
+</html>

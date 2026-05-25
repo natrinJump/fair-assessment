@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>History - FAIR Assessment Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <h1>FAIR Assessment Tool</h1>
+    <a href="index.html">Profiles</a>
+    <a href="assess.html">Assess</a>
+    <a href="history.html">History</a>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <h2>Assessment History</h2>
+        <div class="doi-input-row">
+            <input type="text" id="doi-filter"
+                placeholder="Filter by DOI (leave empty to see all)">
+            <button class="btn btn-primary" onclick="loadHistory()">Search</button>
+        </div>
+    </div>
+
+    <div id="history-container">
+        <div class="loading">Loading history...</div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+async function loadHistory() {
+    const doi = document.getElementById('doi-filter').value.trim();
+    const container = document.getElementById('history-container');
+    container.innerHTML = '<div class="loading">Loading...</div>';
+
+    try {
+        const path = doi ? `/history/${encodeURIComponent(doi)}` : '/history';
+        const history = await apiFetch(path);
+
+        if (!history.length) {
+            container.innerHTML = '<div class="card">No assessments found.</div>';
+            return;
+        }
+
+        const grouped = {};
+        history.forEach(h => {
+            if (!grouped[h.doi]) grouped[h.doi] = [];
+            grouped[h.doi].push(h);
+        });
+
+        container.innerHTML = Object.entries(grouped).map(([doi, runs]) => `
+            <div class="card">
+                <h2 style="font-size:0.9rem;margin-bottom:0.75rem">${doi}</h2>
+                ${runs.map((run, i) => {
+                    const prev = runs[i - 1];
+                    const trend = prev
+                        ? run.overall_score > prev.overall_score
+                            ? '<span class="history-trend up">↑ improved</span>'
+                            : run.overall_score < prev.overall_score
+                                ? '<span class="history-trend down">↓ dropped</span>'
+                                : '<span class="history-trend">→ no change</span>'
+                        : '';
+                    return `
+                        <div class="history-item" onclick="viewRun('${doi}', ${i})">
+                            <div>
+                                <div style="font-size:0.875rem;font-weight:500">
+                                    Run ${i + 1} — ${run.profile_name}
+                                </div>
+                                <div style="font-size:0.75rem;color:#666">
+                                    ${formatDate(run.created_at)}
+                                </div>
+                                ${trend}
+                            </div>
+                            <div style="text-align:right">
+                                <div class="history-score">${formatScore(run.overall_score)}</div>
+                                <div style="font-size:0.75rem;color:#666">
+                                    F:${Math.round(run.f_score)}
+                                    A:${Math.round(run.a_score)}
+                                    I:${Math.round(run.i_score)}
+                                    R:${Math.round(run.r_score)}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+                <div style="display:flex;gap:0.75rem;margin-top:0.75rem">
+                    <button class="btn btn-secondary"
+                        onclick="exportHistory('${doi}')">Export Report</button>
+                    <button class="btn btn-primary"
+                        onclick="runNew('${doi}')">Run New Assessment</button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch(e) {
+        container.innerHTML = `<div class="error">No history found: ${e.message}</div>`;
+    }
+}
+
+function viewRun(doi, index) {
+    window.location.href = `assess.html`;
+    localStorage.setItem('viewDoi', doi);
+}
+
+function runNew(doi) {
+    localStorage.setItem('selectedDoi', doi);
+    document.getElementById('doi-filter').value = doi;
+    window.location.href = 'assess.html';
+}
+
+async function exportHistory(doi) {
+    try {
+        const history = await apiFetch(`/history/${encodeURIComponent(doi)}`);
+        const blob = new Blob([JSON.stringify(history, null, 2)],
+            { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `history-${doi.replace(/\//g, '-')}.json`;
+        a.click();
+    } catch(e) {
+        alert('Export failed: ' + e.message);
+    }
+}
+
+loadHistory();
+</script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db import create_db
 from app.services.retriever import fetch_by_doi
@@ -20,6 +21,13 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="FAIR Assessment API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():

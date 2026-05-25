@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FAIR Assessment Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <h1>FAIR Assessment Tool</h1>
+    <a href="index.html">Profiles</a>
+    <a href="assess.html">Assess</a>
+    <a href="history.html">History</a>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <h2>Select a Profile</h2>
+        <div class="profile-grid" id="profile-grid">
+            <div class="loading">Loading profiles...</div>
+        </div>
+
+        <div class="profile-summary" id="profile-summary" style="display:none">
+            <h3>Profile Summary:</h3>
+            <ul id="summary-list"></ul>
+        </div>
+
+        <div style="display:flex; gap:0.75rem">
+            <button class="btn btn-primary" onclick="continueToAssess()">Continue</button>
+            <button class="btn btn-secondary" onclick="editSelected()">Edit Profile</button>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let selectedProfile = null;
+let profiles = [];
+
+async function loadProfiles() {
+    try {
+        profiles = await apiFetch('/profiles');
+        const grid = document.getElementById('profile-grid');
+        grid.innerHTML = profiles.map(p => `
+            <div class="profile-card" onclick="selectProfile(${p.id})" id="profile-card-${p.id}">
+                <h3>${p.name}</h3>
+                <p>${p.domain}</p>
+            </div>
+        `).join('');
+    } catch(e) {
+        document.getElementById('profile-grid').innerHTML =
+            '<div class="error">Could not load profiles. Is the API running?</div>';
+    }
+}
+
+function selectProfile(id) {
+    selectedProfile = profiles.find(p => p.id === id);
+    document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('profile-card-' + id).classList.add('selected');
+
+    const summary = document.getElementById('profile-summary');
+    const list = document.getElementById('summary-list');
+    summary.style.display = 'block';
+    list.innerHTML = `
+        <li>Identifiers: ${selectedProfile.accepted_identifiers.join(', ')}</li>
+        <li>Formats: ${selectedProfile.accepted_formats.join(', ')}</li>
+        <li>Required fields: ${selectedProfile.required_metadata_fields.join(', ')}</li>
+        ${selectedProfile.required_vocabulary ? `<li>Vocabulary: ${selectedProfile.required_vocabulary}</li>` : ''}
+        ${selectedProfile.required_license ? `<li>License: ${selectedProfile.required_license}</li>` : ''}
+    `;
+
+    localStorage.setItem('selectedProfile', JSON.stringify(selectedProfile));
+}
+
+function continueToAssess() {
+    if (!selectedProfile) {
+        alert('Please select a profile first');
+        return;
+    }
+    window.location.href = 'assess.html';
+}
+
+function editSelected() {
+    if (!selectedProfile) {
+        alert('Please select a profile first');
+        return;
+    }
+    window.location.href = 'edit-profile.html';
+}
+
+loadProfiles();
+</script>
+</body>
+</html>

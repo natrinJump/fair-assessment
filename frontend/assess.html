@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Assess - FAIR Assessment Tool</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .input-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+        .input-row input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            margin-bottom: 0;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .input-row select {
+            width: 220px;
+            margin-bottom: 0;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <h1>FAIR Assessment Tool</h1>
+    <a href="index.html">Profiles</a>
+    <a href="assess.html">Assess</a>
+    <a href="history.html">History</a>
+</nav>
+
+<div class="container">
+    <div class="card">
+        <h2>Run Assessment</h2>
+        <div class="input-group">
+            <div class="input-row">
+                <input type="text" id="doi-input"
+                    placeholder="Enter DOI, e.g. 10.5281/zenodo.3490058">
+                <select id="profile-select"></select>
+                <button type="button" class="btn btn-primary" onclick="runAssessment()">
+    Run Assessment
+</button>
+            </div>
+        </div>
+        <div id="message-area"></div>
+    </div>
+
+    <div id="results-container" style="display:none">
+        <div class="card">
+            <h2>FAIR Evaluation Results</h2>
+            <p style="font-size:0.875rem;color:#666;margin-bottom:1rem"
+                id="result-doi"></p>
+
+            <div class="score-overview">
+                <div class="score-card overall">
+                    <div class="label">Overall</div>
+                    <div class="value" id="score-overall">-</div>
+                </div>
+                <div class="score-card f">
+                    <div class="label">Findable</div>
+                    <div class="value" id="score-f">-</div>
+                </div>
+                <div class="score-card a">
+                    <div class="label">Accessible</div>
+                    <div class="value" id="score-a">-</div>
+                </div>
+                <div class="score-card i">
+                    <div class="label">Interoperable</div>
+                    <div class="value" id="score-i">-</div>
+                </div>
+                <div class="score-card r">
+                    <div class="label">Reusable</div>
+                    <div class="value" id="score-r">-</div>
+                </div>
+            </div>
+
+            <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
+                Details:
+            </h3>
+            <div id="metric-results"></div>
+
+            <hr class="section-divider">
+            <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
+                Recommendations:
+            </h3>
+            <div id="recommendations"></div>
+
+            <div style="display:flex;gap:0.75rem;margin-top:1rem">
+                <button class="btn btn-secondary" onclick="downloadReport()">
+                    Download Report
+                </button>
+                <button type="button" class="btn btn-primary" onclick="runAssessment()">
+    Re-Run Assessment
+</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let lastReport = null;
+
+async function loadProfiles() {
+    try {
+        const profiles = await apiFetch('/profiles');
+        const select = document.getElementById('profile-select');
+        select.innerHTML = profiles.map(p =>
+            `<option value="${p.domain}">${p.name}</option>`
+        ).join('');
+        const saved = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
+        if (saved.domain) select.value = saved.domain;
+    } catch(e) {
+        console.error('Could not load profiles', e);
+    }
+}
+
+async function runAssessment() {
+    console.log('runAssessment called');
+    const doi = document.getElementById('doi-input').value.trim();
+    const profile = document.getElementById('profile-select').value;
+    console.log('DOI:', doi, 'Profile:', profile);
+
+    if (!doi) {
+        showError('message-area', 'Please enter a DOI');
+        return;
+    }
+
+    document.getElementById('message-area').innerHTML =
+        '<div class="loading">Running assessment...</div>';
+    document.getElementById('results-container').style.display = 'none';
+
+    try {
+        console.log('calling API...');
+        const report = await apiFetch(
+            `/assess/${encodeURIComponent(doi)}?profile=${encodeURIComponent(profile)}`
+        );
+        console.log('report received:', report);
+        lastReport = report;
+        document.getElementById('message-area').innerHTML = '';
+        renderReport(report);
+    } catch(e) {
+        console.error('Assessment error:', e);
+        showError('message-area', 'Assessment failed: ' + e.message);
+    }
+}
+
+function renderReport(report) {
+    document.getElementById('results-container').style.display = 'block';
+    document.getElementById('result-doi').textContent =
+        'Dataset: ' + report.doi + ' | Profile: ' + report.profile_name;
+
+    document.getElementById('score-overall').textContent =
+        formatScore(report.overall_score);
+    document.getElementById('score-f').textContent =
+        formatScore(report.f_score);
+    document.getElementById('score-a').textContent =
+        formatScore(report.a_score);
+    document.getElementById('score-i').textContent =
+        formatScore(report.i_score);
+    document.getElementById('score-r').textContent =
+        formatScore(report.r_score);
+
+    const metricContainer = document.getElementById('metric-results');
+    metricContainer.innerHTML = report.results.map(r => `
+        <div class="metric-result ${r.status}">
+            <div class="metric-header">
+                <span class="metric-id">${r.metric_id}</span>
+                <span class="metric-desc">${r.description}</span>
+                <span class="badge ${r.status}">${r.status}</span>
+                <span class="badge ${r.priority}">${r.priority}</span>
+            </div>
+            ${r.evidence
+                ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
+                : ''}
+            ${r.recommendation
+                ? `<div class="metric-recommendation">→ ${r.recommendation}</div>`
+                : ''}
+        </div>
+    `).join('');
+
+    const recs = report.results.filter(r => r.recommendation);
+    const recContainer = document.getElementById('recommendations');
+    if (recs.length === 0) {
+        recContainer.innerHTML =
+            '<p style="font-size:0.875rem;color:#0f9d58">' +
+            'No recommendations — dataset meets all criteria.</p>';
+    } else {
+        recContainer.innerHTML = recs.map(r =>
+            `<div style="font-size:0.875rem;margin-bottom:0.35rem">
+                · ${r.recommendation}
+            </div>`
+        ).join('');
+    }
+}
+
+function downloadReport() {
+    if (!lastReport) return;
+    const blob = new Blob(
+        [JSON.stringify(lastReport, null, 2)],
+        { type: 'application/json' }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fair-report-' + lastReport.doi.replace(/\//g, '-') + '.json';
+    a.click();
+}
+
+loadProfiles();
+</script>
+</body>
+</html>

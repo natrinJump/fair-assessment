@@ -4,12 +4,23 @@ from app.models.metadata import NormalizedMetadata
 from app.models.profile import Profile, MetricResult, AssessmentReport
 
 def load_profile(profile_name: str) -> Profile:
+    # try exact filename first
     path = os.path.join("profiles", f"{profile_name}.json")
-    if not os.path.exists(path):
-        path = os.path.join("profiles", "generic_fair.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return Profile(**json.load(f))
+
+    # try domain-based lookup from database
+    from app.services.profile_service import get_all_profiles
+    all_profiles = get_all_profiles()
+    for p in all_profiles:
+        if p["domain"] == profile_name or p["name"] == profile_name:
+            return Profile(**p)
+
+    # fallback to generic
+    path = os.path.join("profiles", "generic_fair.json")
     with open(path, "r") as f:
-        data = json.load(f)
-    return Profile(**data)
+        return Profile(**json.load(f))
 
 def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     identifier = metadata.core.identifier
