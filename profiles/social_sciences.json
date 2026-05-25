@@ -1,0 +1,9 @@
+{
+  "name": "Social Sciences Profile",
+  "domain": "social_sciences",
+  "accepted_identifiers": ["doi"],
+  "required_metadata_fields": ["title", "description", "creator", "license"],
+  "accepted_formats": ["csv", "json"],
+  "required_vocabulary": "DDI",
+  "required_license": null
+}

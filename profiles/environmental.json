@@ -1,0 +1,9 @@
+{
+  "name": "Environmental Sciences Profile",
+  "domain": "environmental",
+  "accepted_identifiers": ["doi"],
+  "required_metadata_fields": ["title", "description", "creator", "license"],
+  "accepted_formats": ["netcdf", "json-ld"],
+  "required_vocabulary": "ENVO",
+  "required_license": "CC-BY"
+}
