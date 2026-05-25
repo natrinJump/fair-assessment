@@ -23,6 +23,7 @@ class MetricResult(BaseModel):
     metric_id: str
     principle: str
     status: str
+    priority: str        # "essential", "important", or "useful"
     description: str
     evidence: Optional[str] = None
     recommendation: Optional[str] = None
