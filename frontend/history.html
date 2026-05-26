@@ -52,12 +52,6 @@
             border: 1px solid #d93025;
         }
         .btn-sm-danger:hover { background: #fce8e6; }
-        .btn-sm-pdf {
-            background: white;
-            color: #0f9d58;
-            border: 1px solid #0f9d58;
-        }
-        .btn-sm-pdf:hover { background: #e6f4ea; }
         .run-details {
             display: none;
             padding: 1rem;
@@ -138,7 +132,7 @@
         <h2>Assessment History</h2>
         <div style="display:flex;gap:0.75rem;align-items:center">
             <input type="text" id="doi-filter"
-                placeholder="Filter by DOI (leave empty to see all)"
+                placeholder="Leave empty to show all assessments"
                 style="flex:1;margin-bottom:0">
             <button type="button" class="btn btn-primary"
                 onclick="loadHistory()">Search</button>
@@ -232,11 +226,6 @@ async function loadHistory() {
                                     </div>
                                     <div class="run-actions no-print"
                                         onclick="event.stopPropagation()">
-                                        <button type="button"
-                                            class="btn-sm btn-sm-pdf"
-                                            onclick="exportPDF(${run.id})">
-                                            PDF
-                                        </button>
                                         <button type="button"
                                             class="btn-sm btn-sm-secondary"
                                             onclick="exportJSON(${run.id})">

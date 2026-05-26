@@ -25,7 +25,7 @@ def get_history_by_doi(doi: str):
         records = session.exec(
             select(AssessmentHistoryDB)
             .where(AssessmentHistoryDB.doi == doi)
-            .order_by(AssessmentHistoryDB.created_at)
+            .order_by(AssessmentHistoryDB.created_at.desc())
         ).all()
         return [_to_dict(r) for r in records]
 
