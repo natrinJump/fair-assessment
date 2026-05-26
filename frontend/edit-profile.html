@@ -837,8 +837,47 @@ async function restoreProfile() {
             '/profiles/' + encodeURIComponent(profile.name) + '/restore',
             { method: 'POST' }
         );
+
+        // clear localStorage cached state
         localStorage.removeItem('profileFullState_' + profile.name);
-        location.reload();
+
+        // update profile in memory with restored values
+        profile = {...profile, ...restored};
+        localStorage.setItem('selectedProfile', JSON.stringify(profile));
+
+        // reset all arrays to restored values
+        allIdentifiers = [...(restored.accepted_identifiers || [])];
+        allFormats = [...(restored.accepted_formats || [])];
+        allMetadata = [...(restored.required_metadata_fields || [])];
+        allLicenses = [...(restored.accepted_licenses || [])];
+        allProvenance = [...(restored.required_provenance_fields || [])];
+
+        activeIdentifiers = [...(restored.accepted_identifiers || [])];
+        activeFormats = [...(restored.accepted_formats || [])];
+        activeMetadata = [...(restored.required_metadata_fields || [])];
+        activeLicenses = [...(restored.accepted_licenses || [])];
+        activeProvenance = [...(restored.required_provenance_fields || [])];
+
+        customIdentifiers = [...(restored.custom_identifiers || [])];
+        customVocabularies = [...(restored.custom_vocabularies || [])];
+
+        // reset text inputs
+        document.getElementById('vocabulary-input').value =
+            restored.required_vocabulary || '';
+        document.getElementById('license-input').value =
+            restored.required_license || '';
+        document.getElementById('community-standard').value =
+            restored.community_standard || '';
+        document.getElementById('check-discoverability').checked =
+            restored.check_discoverability !== false;
+        document.getElementById('require-related').checked =
+            restored.require_related_resources === true;
+
+        renderAll();
+        validateProfile();
+        showSuccess('message-area',
+            'Profile restored to default settings.');
+
     } catch(e) {
         showError('message-area', 'Restore failed: ' + e.message);
     }

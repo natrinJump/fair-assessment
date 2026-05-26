@@ -822,6 +822,8 @@ def run_assessment(metadata: NormalizedMetadata,
     r_score = calculate_score(results, "R")
     overall = round((f_score + a_score + i_score + r_score) / 4, 1)
 
+    maturity, maturity_desc = get_maturity(overall)
+
     return AssessmentReport(
         doi=metadata.raw_identifier,
         profile_name=profile.name,
@@ -830,5 +832,37 @@ def run_assessment(metadata: NormalizedMetadata,
         a_score=a_score,
         i_score=i_score,
         r_score=r_score,
+        maturity_level=maturity,
+        maturity_description=maturity_desc,
         results=results
     )
+
+def get_maturity(score: float) -> tuple:
+    if score >= 80:
+        return (
+            "Advanced",
+            "Dataset demonstrates strong FAIRness. Most FAIR "
+            "requirements are met. Focus on remaining gaps to "
+            "reach full compliance."
+        )
+    elif score >= 60:
+        return (
+            "Intermediate",
+            "Dataset meets core FAIR requirements but has notable "
+            "gaps. Review failed and partial metrics and address "
+            "recommendations to improve."
+        )
+    elif score >= 40:
+        return (
+            "Initial",
+            "Dataset has basic FAIR elements but significant "
+            "improvements are needed across multiple principles. "
+            "Prioritise essential metrics first."
+        )
+    else:
+        return (
+            "Incomplete",
+            "Dataset does not yet meet basic FAIR requirements. "
+            "Start with essential metrics: persistent identifier, "
+            "basic metadata fields, and a machine-readable license."
+        )
