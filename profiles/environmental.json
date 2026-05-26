@@ -2,8 +2,23 @@
   "name": "Environmental Sciences Profile",
   "domain": "environmental",
   "accepted_identifiers": ["doi"],
+  "custom_identifiers": [],
   "required_metadata_fields": ["title", "description", "creator", "license"],
-  "accepted_formats": ["netcdf", "json-ld"],
+  "custom_metadata_fields": ["spatial_resolution", "temporal_coverage", "sensor_type"],
+  "check_discoverability": true,
+  "accepted_formats": ["netcdf", "json-ld", "csv"],
   "required_vocabulary": "ENVO",
-  "required_license": "CC-BY"
+  "custom_vocabularies": [
+    {
+      "name": "ENVO",
+      "check_url": "https://www.ebi.ac.uk/ols/ontologies/envo",
+      "keywords": ["envo", "environment", "biome", "ecosystem"],
+      "description": "Environment Ontology"
+    }
+  ],
+  "require_related_resources": false,
+  "accepted_licenses": ["cc-by", "cc0"],
+  "required_license": "CC-BY",
+  "required_provenance_fields": ["creator", "provenance_date"],
+  "community_standard": "CF Conventions"
 }

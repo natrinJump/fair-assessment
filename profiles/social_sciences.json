@@ -2,8 +2,23 @@
   "name": "Social Sciences Profile",
   "domain": "social_sciences",
   "accepted_identifiers": ["doi"],
+  "custom_identifiers": [],
   "required_metadata_fields": ["title", "description", "creator", "license"],
-  "accepted_formats": ["csv", "json"],
+  "custom_metadata_fields": ["population", "survey_method", "sampling_technique"],
+  "check_discoverability": true,
+  "accepted_formats": ["csv", "json", "xml"],
   "required_vocabulary": "DDI",
-  "required_license": null
+  "custom_vocabularies": [
+    {
+      "name": "DDI",
+      "check_url": "https://ddialliance.org/",
+      "keywords": ["ddi", "survey", "variable", "codebook"],
+      "description": "Data Documentation Initiative"
+    }
+  ],
+  "require_related_resources": false,
+  "accepted_licenses": ["cc-by", "cc0"],
+  "required_license": null,
+  "required_provenance_fields": ["creator", "provenance_date", "description"],
+  "community_standard": "DDI"
 }

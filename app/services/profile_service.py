@@ -4,86 +4,126 @@ from sqlmodel import Session, select
 from app.db import ProfileDB, engine
 from app.models.profile import Profile
 
-def load_all_default_profiles():
-    profiles_dir = "profiles"
-    loaded = []
-    for filename in os.listdir(profiles_dir):
-        if filename.endswith(".json"):
-            with open(os.path.join(profiles_dir, filename), "r") as f:
-                data = json.load(f)
-                loaded.append(data)
-    return loaded
+def _db_to_dict(p: ProfileDB) -> dict:
+    return {
+        "id": p.id,
+        "name": p.name,
+        "domain": p.domain,
+        "accepted_identifiers": json.loads(p.accepted_identifiers),
+        "custom_identifiers": json.loads(p.custom_identifiers),
+        "required_metadata_fields": json.loads(p.required_metadata_fields),
+        "custom_metadata_fields": json.loads(p.custom_metadata_fields),
+        "check_discoverability": p.check_discoverability,
+        "accepted_formats": json.loads(p.accepted_formats),
+        "required_vocabulary": p.required_vocabulary,
+        "custom_vocabularies": json.loads(p.custom_vocabularies),
+        "require_related_resources": p.require_related_resources,
+        "accepted_licenses": json.loads(p.accepted_licenses),
+        "required_license": p.required_license,
+        "required_provenance_fields": json.loads(p.required_provenance_fields),
+        "community_standard": p.community_standard,
+    }
+
+def _dict_to_db(data: dict) -> ProfileDB:
+    return ProfileDB(
+        name=data["name"],
+        domain=data["domain"],
+        accepted_identifiers=json.dumps(data.get("accepted_identifiers", [])),
+        custom_identifiers=json.dumps(data.get("custom_identifiers", [])),
+        required_metadata_fields=json.dumps(
+            data.get("required_metadata_fields", [])),
+        custom_metadata_fields=json.dumps(
+            data.get("custom_metadata_fields", [])),
+        check_discoverability=data.get("check_discoverability", True),
+        accepted_formats=json.dumps(data.get("accepted_formats", [])),
+        required_vocabulary=data.get("required_vocabulary"),
+        custom_vocabularies=json.dumps(data.get("custom_vocabularies", [])),
+        require_related_resources=data.get("require_related_resources", False),
+        accepted_licenses=json.dumps(data.get("accepted_licenses", [])),
+        required_license=data.get("required_license"),
+        required_provenance_fields=json.dumps(
+            data.get("required_provenance_fields",
+                     ["creator", "provenance_date"])),
+        community_standard=data.get("community_standard"),
+    )
 
 def seed_profiles():
     with Session(engine) as session:
         existing = session.exec(select(ProfileDB)).all()
         if existing:
             return
-        for data in load_all_default_profiles():
-            profile = ProfileDB(
-                name=data["name"],
-                domain=data["domain"],
-                accepted_identifiers=json.dumps(data["accepted_identifiers"]),
-                required_metadata_fields=json.dumps(data["required_metadata_fields"]),
-                accepted_formats=json.dumps(data["accepted_formats"]),
-                required_vocabulary=data.get("required_vocabulary"),
-                required_license=data.get("required_license"),
-            )
-            session.add(profile)
+        profiles_dir = "profiles"
+        for filename in os.listdir(profiles_dir):
+            if filename.endswith(".json"):
+                with open(os.path.join(profiles_dir, filename), "r") as f:
+                    data = json.load(f)
+                session.add(_dict_to_db(data))
         session.commit()
 
 def get_all_profiles():
     with Session(engine) as session:
         profiles = session.exec(select(ProfileDB)).all()
-        return [db_to_profile(p) for p in profiles]
+        return [_db_to_dict(p) for p in profiles]
 
-def get_profile_by_name(name: str) -> Profile:
+def get_profile_by_name(name: str):
     with Session(engine) as session:
         results = session.exec(
             select(ProfileDB).where(ProfileDB.name == name)
         ).all()
         if not results:
             return None
-        return db_to_profile(results[0])
+        return _db_to_dict(results[0])
 
-def create_profile(data: dict) -> Profile:
+def get_profile_by_domain(domain: str):
     with Session(engine) as session:
-        profile = ProfileDB(
-            name=data["name"],
-            domain=data["domain"],
-            accepted_identifiers=json.dumps(data.get("accepted_identifiers", [])),
-            required_metadata_fields=json.dumps(data.get("required_metadata_fields", [])),
-            accepted_formats=json.dumps(data.get("accepted_formats", [])),
-            required_vocabulary=data.get("required_vocabulary"),
-            required_license=data.get("required_license"),
-        )
+        results = session.exec(
+            select(ProfileDB).where(ProfileDB.domain == domain)
+        ).all()
+        if not results:
+            return None
+        return _db_to_dict(results[0])
+
+def create_profile(data: dict) -> dict:
+    with Session(engine) as session:
+        profile = _dict_to_db(data)
         session.add(profile)
         session.commit()
         session.refresh(profile)
-        return db_to_profile(profile)
+        return _db_to_dict(profile)
 
-def update_profile(name: str, data: dict) -> Profile:
+def update_profile(name: str, data: dict) -> dict:
     with Session(engine) as session:
         results = session.exec(
             select(ProfileDB).where(ProfileDB.name == name)
         ).all()
         if not results:
             return None
-        profile = results[0]
-        if "accepted_identifiers" in data:
-            profile.accepted_identifiers = json.dumps(data["accepted_identifiers"])
-        if "required_metadata_fields" in data:
-            profile.required_metadata_fields = json.dumps(data["required_metadata_fields"])
-        if "accepted_formats" in data:
-            profile.accepted_formats = json.dumps(data["accepted_formats"])
-        if "required_vocabulary" in data:
-            profile.required_vocabulary = data["required_vocabulary"]
-        if "required_license" in data:
-            profile.required_license = data["required_license"]
-        session.add(profile)
+        p = results[0]
+        for field, json_fields in [
+            ("accepted_identifiers", True),
+            ("custom_identifiers", True),
+            ("required_metadata_fields", True),
+            ("custom_metadata_fields", True),
+            ("accepted_formats", True),
+            ("custom_vocabularies", True),
+            ("accepted_licenses", True),
+            ("required_provenance_fields", True),
+        ]:
+            if field in data:
+                setattr(p, field, json.dumps(data[field]))
+        for field in [
+            "required_vocabulary", "required_license",
+            "community_standard", "domain"
+        ]:
+            if field in data:
+                setattr(p, field, data[field])
+        for field in ["check_discoverability", "require_related_resources"]:
+            if field in data:
+                setattr(p, field, data[field])
+        session.add(p)
         session.commit()
-        session.refresh(profile)
-        return db_to_profile(profile)
+        session.refresh(p)
+        return _db_to_dict(p)
 
 def delete_profile(name: str) -> bool:
     with Session(engine) as session:
@@ -95,15 +135,3 @@ def delete_profile(name: str) -> bool:
         session.delete(results[0])
         session.commit()
         return True
-
-def db_to_profile(p: ProfileDB) -> dict:
-    return {
-        "id": p.id,
-        "name": p.name,
-        "domain": p.domain,
-        "accepted_identifiers": json.loads(p.accepted_identifiers),
-        "required_metadata_fields": json.loads(p.required_metadata_fields),
-        "accepted_formats": json.loads(p.accepted_formats),
-        "required_vocabulary": p.required_vocabulary,
-        "required_license": p.required_license,
-    }

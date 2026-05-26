@@ -2,8 +2,36 @@
   "name": "Life Sciences Profile",
   "domain": "life_sciences",
   "accepted_identifiers": ["doi", "biosample", "genbank"],
+  "custom_identifiers": [
+    {
+      "name": "BioSample",
+      "match_type": "starts_with",
+      "value": "SAMN",
+      "description": "NCBI BioSample identifier"
+    },
+    {
+      "name": "GenBank",
+      "match_type": "starts_with",
+      "value": "NC_",
+      "description": "NCBI GenBank accession"
+    }
+  ],
   "required_metadata_fields": ["title", "description", "creator", "license"],
-  "accepted_formats": ["rdf", "json-ld"],
+  "custom_metadata_fields": ["organism", "experimental_method"],
+  "check_discoverability": true,
+  "accepted_formats": ["rdf", "json-ld", "xml"],
   "required_vocabulary": "MeSH",
-  "required_license": null
+  "custom_vocabularies": [
+    {
+      "name": "MeSH",
+      "check_url": "https://meshb.nlm.nih.gov/",
+      "keywords": ["mesh", "gene ontology", "go:", "uniprot"],
+      "description": "Medical Subject Headings"
+    }
+  ],
+  "require_related_resources": true,
+  "accepted_licenses": ["cc-by", "cc0"],
+  "required_license": null,
+  "required_provenance_fields": ["creator", "provenance_date", "description"],
+  "community_standard": "Dublin Core"
 }

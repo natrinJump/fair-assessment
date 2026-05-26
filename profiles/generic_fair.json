@@ -2,8 +2,16 @@
   "name": "Generic FAIR Profile",
   "domain": "generic",
   "accepted_identifiers": ["doi", "handle", "ark"],
+  "custom_identifiers": [],
   "required_metadata_fields": ["title", "description", "creator", "license"],
+  "custom_metadata_fields": [],
+  "check_discoverability": true,
   "accepted_formats": ["json", "xml", "csv", "json-ld"],
   "required_vocabulary": null,
-  "required_license": null
+  "custom_vocabularies": [],
+  "require_related_resources": false,
+  "accepted_licenses": ["cc-by", "cc0", "mit", "apache", "gpl", "bsd"],
+  "required_license": null,
+  "required_provenance_fields": ["creator", "provenance_date"],
+  "community_standard": null
 }

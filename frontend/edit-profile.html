@@ -5,27 +5,58 @@
     <title>Edit Profile - FAIR Assessment Tool</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        .principle-section {
+            margin-bottom: 1.5rem;
+        }
+        .principle-header {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #1a73e8;
+            margin: 0 0 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: #e8f0fe;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .principle-desc {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0.75rem;
+            padding-left: 0.5rem;
+        }
         .fixed-check {
             background: #f1f3f4;
             border-radius: 6px;
             padding: 0.5rem 0.75rem;
             font-size: 0.8rem;
             color: #666;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        .fixed-check .lock { color: #999; font-size: 0.75rem; }
-        .warning-box {
-            background: #fef7e0;
-            border: 1px solid #f4b400;
+        .configurable-block {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
             border-radius: 6px;
             padding: 0.75rem 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .configurable-block label {
             font-size: 0.875rem;
-            color: #856404;
-            margin-bottom: 1rem;
-            display: none;
+            font-weight: 600;
+            color: #333;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+        .configurable-block .hint {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 0.5rem;
         }
         .item-row {
             display: flex;
@@ -35,18 +66,59 @@
             font-size: 0.875rem;
             padding: 0.35rem 0.5rem;
             border-radius: 4px;
-            background: #f8f9fa;
+            background: white;
+            border: 1px solid #e8e8e8;
         }
         .item-row input[type="checkbox"] {
-            width: auto;
-            margin: 0;
+            width: auto; margin: 0;
         }
-        .item-row .item-label { flex: 1; }
-        .item-row .remove-btn {
+        .item-label { flex: 1; }
+        .item-badge {
+            font-size: 0.7rem;
+            color: #999;
+            background: #f0f0f0;
+            padding: 1px 6px;
+            border-radius: 10px;
+        }
+        .remove-btn {
             background: none; border: none;
             color: #d93025; cursor: pointer;
             font-size: 1rem; padding: 0 4px;
-            line-height: 1;
+        }
+        .add-link {
+            color: #1a73e8;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            background: none;
+            border: none;
+            padding: 0.25rem 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .add-link:hover { text-decoration: underline; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.35rem 0;
+        }
+        .toggle-row label {
+            font-size: 0.875rem;
+            color: #333;
+            margin: 0;
+            font-weight: normal;
+        }
+        .warning-box {
+            background: #fef7e0;
+            border: 1px solid #f4b400;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            color: #856404;
+            margin-bottom: 1rem;
+            display: none;
         }
         .modal-backdrop {
             display: none;
@@ -63,7 +135,9 @@
             background: white;
             border-radius: 8px;
             padding: 1.5rem;
-            width: 420px;
+            width: 440px;
+            max-height: 85vh;
+            overflow-y: auto;
         }
         .modal-box h3 { margin-bottom: 1rem; font-size: 1rem; }
         .modal-box label {
@@ -72,20 +146,10 @@
             margin-bottom: 0.25rem;
             color: #444;
         }
-        .section-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            color: #1a73e8;
-            margin: 1.25rem 0 0.75rem;
-            padding-bottom: 0.35rem;
-            border-bottom: 1px solid #e8f0fe;
-        }
+        .form-group { margin-bottom: 0.75rem; }
     </style>
 </head>
 <body>
-
 <nav class="navbar">
     <h1>FAIR Assessment Tool</h1>
     <a href="index.html">Profiles</a>
@@ -94,102 +158,303 @@
 </nav>
 
 <div class="container">
-    <div class="card">
-        <h2 id="profile-title">Edit Profile</h2>
-<p style="font-size:0.8rem;color:#666;margin-bottom:1rem">
+  <div class="card">
+    <h2 id="profile-title">Edit Profile</h2>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:1rem">
+        Configure evaluation criteria per FAIR principle.
+        🔒 items are always evaluated regardless of configuration.
+        Uncheck baseline items to deactivate them, or add custom ones.
+    </p>
+    <div id="message-area"></div>
+    <div class="warning-box" id="warning-box"></div>
 
-</p>
-
-        <div id="message-area"></div>
-        <div class="warning-box" id="warning-box"></div>
-
-        <div class="section-title">Findable — Identifier Requirements</div>
-
-        <div class="checkbox-group">
-            <label style="font-size:0.875rem;color:#444;margin-bottom:0.5rem;display:block">
-                Accepted persistent identifier types:
-            </label>
-
+    <!-- F1 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>F1 — Identifier</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Which persistent identifier types are accepted for this domain.
+            The system will check if the dataset's identifier matches
+            one of these types.
+        </div>
+        <div class="fixed-check">
+            🔒 Identifier must be globally resolvable via HTTP/HTTPS
+        </div>
+        <div class="configurable-block">
+            <label>Accepted identifier types:</label>
+            <div class="hint">
+                Uncheck to deactivate. Custom identifiers support
+                prefix/pattern matching.
+            </div>
             <div id="identifier-list"></div>
             <button type="button" class="add-link"
-                onclick="openModal('identifier')">+ Add Identifier Type</button>
+                onclick="openModal('identifier')">
+                + Add identifier type
+            </button>
         </div>
+    </div>
 
-        <div class="section-title">Findable / Interoperable — Metadata Fields</div>
-        <div class="checkbox-group">
-            <label style="font-size:0.875rem;color:#444;margin-bottom:0.5rem;display:block">
-                Required metadata fields:
-            </label>
+    <!-- F2 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>F2 — Rich Metadata</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Which metadata fields must be present for this domain.
+            Domain-specific fields (e.g. crop_type for agriculture) can
+            be added as custom fields.
+        </div>
+        <div class="configurable-block">
+            <label>Required metadata fields:</label>
+            <div class="hint">
+                Standard fields check core metadata. Custom fields check
+                domain-specific metadata.
+            </div>
             <div id="metadata-list"></div>
             <button type="button" class="add-link"
-                onclick="openModal('metadata')">+ Add Metadata Field</button>
+                onclick="openModal('metadata')">
+                + Add metadata field
+            </button>
         </div>
+    </div>
 
-        <div class="section-title">Interoperable — File Formats</div>
-        <div class="checkbox-group">
-            <label style="font-size:0.875rem;color:#444;margin-bottom:0.5rem;display:block">
-                Accepted file formats:
-            </label>
+    <!-- F4 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>F4 — Discoverability</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Whether to check if metadata can be retrieved via standard
+            identifier resolution.
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Check discoverability via identifier resolution</label>
+                <input type="checkbox" id="check-discoverability"
+                    style="width:auto">
+            </div>
+        </div>
+    </div>
+
+    <!-- A1.2 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>A1 / A1.1 / A2 — Accessibility</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Fixed
+            </span>
+        </div>
+        <div class="principle-desc">
+            These checks are always applied and cannot be configured.
+        </div>
+        <div class="fixed-check">
+            🔒 A1: Metadata accessible via HTTP/HTTPS
+        </div>
+        <div class="fixed-check">
+            🔒 A1.1: Metadata uses open free protocol (HTTP/HTTPS)
+        </div>
+        <div class="fixed-check">
+            🔒 A2: Metadata persists independently of data availability
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>
+                    A1.2: Require authentication/access rights declaration
+                    for restricted data
+                </label>
+                <span style="font-size:0.75rem;color:#888">(useful)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- I1 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>I1 — Knowledge Representation / Formats</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Which file formats are accepted for this domain. The system
+            checks if the dataset's format matches one of these.
+        </div>
+        <div class="configurable-block">
+            <label>Accepted file formats:</label>
+            <div class="hint">
+                e.g. csv, json-ld, rdf, netcdf, xml
+            </div>
             <div id="format-list"></div>
             <button type="button" class="add-link"
-                onclick="openModal('format')">+ Add Format</button>
+                onclick="openModal('format')">
+                + Add format
+            </button>
         </div>
-
-        <div class="section-title">Interoperable — Vocabulary</div>
-        <div class="checkbox-group">
-            <label style="font-size:0.875rem;color:#444;margin-bottom:0.5rem;display:block">
-                Required controlled vocabulary:
-            </label>
-            
-            <input type="text" id="vocabulary-input"
-                placeholder="e.g. AGROVOC, MeSH, ENVO (leave empty if none required)"
-                style="margin-top:0.5rem">
-        </div>
-
-        <div class="section-title">Reusable — License</div>
-        <div class="checkbox-group">
-            <label style="font-size:0.875rem;color:#444;margin-bottom:0.5rem;display:block">
-                Required license:
-            </label>
-            <div class="fixed-check">
-
-            <input type="text" id="license-input"
-                placeholder="e.g. CC-BY (leave empty to accept any license)"
-                style="margin-top:0.5rem">
-        </div>
-
-        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;flex-wrap:wrap">
-    <button type="button" class="btn btn-primary"
-        onclick="saveProfile()">Save Profile</button>
-    <button type="button" class="btn btn-secondary"
-        onclick="window.location.href='index.html'">Cancel</button>
-    <button type="button" class="btn btn-secondary"
-        onclick="restoreProfile()"
-        style="margin-left:auto;border-color:#f4b400;color:#856404">
-        ↺ Restore to Default
-    </button>
-</div>
     </div>
+
+    <!-- I2 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>I2 — FAIR Vocabularies</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Which controlled vocabularies metadata should reference.
+            Custom vocabularies support keyword-based detection in metadata.
+        </div>
+        <div class="configurable-block">
+            <label>Required vocabulary:</label>
+            <input type="text" id="vocabulary-input"
+                placeholder="e.g. AGROVOC, MeSH, ENVO (leave empty if none)"
+                style="background:white">
+        </div>
+        <div class="configurable-block">
+            <label>Custom vocabularies to check:</label>
+            <div class="hint">
+                Add vocabulary name + keywords to detect in metadata.
+                The system will search for these keywords in metadata fields.
+            </div>
+            <div id="vocab-list"></div>
+            <button type="button" class="add-link"
+                onclick="openModal('vocabulary')">
+                + Add vocabulary
+            </button>
+        </div>
+    </div>
+
+    <!-- I3 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>I3 — Qualified References</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Whether metadata must include references to related resources.
+            If required, datasets without relatedIdentifiers will fail.
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>
+                    Require qualified references to related resources
+                    (relatedIdentifiers, citations)
+                </label>
+                <input type="checkbox" id="require-related"
+                    style="width:auto">
+            </div>
+        </div>
+    </div>
+
+    <!-- R1 / R1.1 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>R1.1 — License</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Which licenses are acceptable. You can require a specific
+            license or allow any from the accepted list.
+        </div>
+        <div class="fixed-check">
+            🔒 A machine-readable license must be present in metadata
+        </div>
+        <div class="configurable-block">
+            <label>Accepted licenses:</label>
+            <div class="hint">
+                Add license identifiers (e.g. cc-by, cc0, mit, apache)
+            </div>
+            <div id="license-list"></div>
+            <button type="button" class="add-link"
+                onclick="openModal('license')">
+                + Add license
+            </button>
+        </div>
+        <div class="configurable-block">
+            <label>Specific required license (optional):</label>
+            <input type="text" id="license-input"
+                placeholder="e.g. CC-BY (leave empty to accept any from list)"
+                style="background:white">
+        </div>
+    </div>
+
+    <!-- R1.2 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>R1.2 — Provenance</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            Which provenance fields must be present. Standard fields:
+            creator, provenance_date, description.
+        </div>
+        <div class="configurable-block">
+            <label>Required provenance fields:</label>
+            <div id="provenance-list"></div>
+            <button type="button" class="add-link"
+                onclick="openModal('provenance')">
+                + Add provenance field
+            </button>
+        </div>
+    </div>
+
+    <!-- R1.3 -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>R1.3 — Community Standards</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">
+                Configurable
+            </span>
+        </div>
+        <div class="principle-desc">
+            The community standard this profile targets. This is used
+            in evaluation feedback. Format compliance is checked via I1.
+        </div>
+        <div class="configurable-block">
+            <label>Community standard name (optional):</label>
+            <input type="text" id="community-standard"
+                placeholder="e.g. AGRIS, DDI, CF Conventions, Dublin Core"
+                style="background:white">
+        </div>
+    </div>
+
+    <div style="display:flex;gap:0.75rem;margin-top:1.5rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary"
+            onclick="saveProfile()">Save Profile</button>
+        <button type="button" class="btn btn-secondary"
+            onclick="window.location.href='index.html'">Cancel</button>
+        <button type="button" class="btn btn-secondary"
+            onclick="restoreProfile()"
+            style="margin-left:auto;border-color:#f4b400;color:#856404">
+            ↺ Restore to Default
+        </button>
+    </div>
+  </div>
 </div>
 
+<!-- Add modal -->
 <div class="modal-backdrop" id="add-modal">
     <div class="modal-box">
         <h3 id="modal-title">Add Item</h3>
-        <label>Name:</label>
-        <input type="text" id="modal-name" placeholder="e.g. ARK, NetCDF, crop_type">
-        <label style="margin-top:0.5rem">Match condition:</label>
-        <select id="modal-match" style="margin-bottom:0.75rem">
-            <option value="starts_with">Starts with</option>
-            <option value="contains">Contains</option>
-            <option value="exact">Exact match</option>
-        </select>
-        <label>Value (for identifiers/formats):</label>
-        <input type="text" id="modal-value"
-            placeholder="e.g. ark: (optional for metadata fields)">
-        <label style="margin-top:0.5rem">Description (optional):</label>
-        <input type="text" id="modal-desc"
-            placeholder="Brief description of this requirement">
-        <div style="display:flex;gap:0.75rem;margin-top:1rem;justify-content:flex-end">
+        <div id="modal-body"></div>
+        <div style="display:flex;gap:0.75rem;margin-top:1rem;
+            justify-content:flex-end">
             <button type="button" class="btn btn-secondary"
                 onclick="closeModal()">Cancel</button>
             <button type="button" class="btn btn-primary"
@@ -200,179 +465,174 @@
 
 <script src="app.js"></script>
 <script>
-let profile = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
+let profile = JSON.parse(
+    localStorage.getItem('selectedProfile') || '{}');
 let currentModalType = null;
 
-// load saved full state if exists (preserves unchecked items)
-const savedFullState = JSON.parse(
-    localStorage.getItem('profileFullState_' + profile.name) || 'null'
-);
+// load saved state
+const savedState = JSON.parse(
+    localStorage.getItem('profileFullState_' + profile.name) || 'null');
 
-// ALL items ever seen — use saved full state if available
-let allIdentifiers = savedFullState
-    ? savedFullState.all_identifiers
-    : [...(profile.accepted_identifiers || [])];
-let allFormats = savedFullState
-    ? savedFullState.all_formats
-    : [...(profile.accepted_formats || [])];
-let allMetadata = savedFullState
-    ? savedFullState.all_metadata
-    : [...(profile.required_metadata_fields || [])];
+// ALL items (including unchecked baseline)
+let allIdentifiers = savedState?.all_identifiers
+    || [...(profile.accepted_identifiers || [])];
+let allFormats = savedState?.all_formats
+    || [...(profile.accepted_formats || [])];
+let allMetadata = savedState?.all_metadata
+    || [...(profile.required_metadata_fields || [])];
+let allLicenses = savedState?.all_licenses
+    || [...(profile.accepted_licenses || [])];
+let allProvenance = savedState?.all_provenance
+    || [...(profile.required_provenance_fields
+            || ['creator', 'provenance_date'])];
 
-// active = what the profile currently has checked
+// ACTIVE items (currently checked)
 let activeIdentifiers = [...(profile.accepted_identifiers || [])];
 let activeFormats = [...(profile.accepted_formats || [])];
 let activeMetadata = [...(profile.required_metadata_fields || [])];
+let activeLicenses = [...(profile.accepted_licenses || [])];
+let activeProvenance = [...(profile.required_provenance_fields
+    || ['creator', 'provenance_date'])];
 
-// baseline = original profile items, never get × button
-const baselineIdentifiers = savedFullState
-    ? savedFullState.all_identifiers.filter(i =>
-        profile.accepted_identifiers?.includes(i) ||
-        allIdentifiers.includes(i))
-    : [...(profile.accepted_identifiers || [])];
-const baselineFormats = savedFullState
-    ? savedFullState.all_formats
-    : [...(profile.accepted_formats || [])];
-const baselineMetadata = savedFullState
-    ? savedFullState.all_metadata
-    : [...(profile.required_metadata_fields || [])];
+// BASELINE (original — no × button)
+const baselineIdentifiers = [...(profile.accepted_identifiers || [])];
+const baselineFormats = [...(profile.accepted_formats || [])];
+const baselineMetadata = [...(profile.required_metadata_fields || [])];
+const baselineLicenses = [...(profile.accepted_licenses || [])];
+const baselineProvenance = [...(profile.required_provenance_fields
+    || ['creator', 'provenance_date'])];
 
-function renderList(allItems, activeItems, baselineItems, containerId, type) {
+// Custom items (from profile)
+let customIdentifiers = [...(profile.custom_identifiers || [])];
+let customVocabularies = [...(profile.custom_vocabularies || [])];
+let customMetadata = [...(profile.custom_metadata_fields || [])];
+
+function renderList(allItems, activeItems, baselineItems,
+                    containerId, type) {
     const container = document.getElementById(containerId);
     if (allItems.length === 0) {
         container.innerHTML =
-            '<div style="font-size:0.8rem;color:#999;padding:0.25rem 0">' +
-            'No items — click + Add below</div>';
+            '<div style="font-size:0.8rem;color:#999;padding:0.25rem">' +
+            'None added — click + Add below</div>';
         return;
     }
     container.innerHTML = allItems.map(item => {
         const checked = activeItems.includes(item);
-        const isBaseline = baselineItems.includes(item);
+        const isBase = baselineItems.includes(item);
         return `
             <div class="item-row">
                 <input type="checkbox" ${checked ? 'checked' : ''}
-                    onchange="toggleItem('${type}', '${item}', this.checked)">
+                    onchange="toggleItem('${type}','${item}',this.checked)">
                 <span class="item-label"
                     style="${!checked
-                        ? 'color:#aaa;text-decoration:line-through;'
-                        : ''}">
+                        ? 'color:#aaa;text-decoration:line-through' : ''}">
                     ${item}
                 </span>
-                ${isBaseline
-                    ? '<span style="font-size:0.7rem;color:#bbb;margin-left:4px">baseline</span>'
+                ${isBase
+                    ? '<span class="item-badge">baseline</span>'
                     : `<button type="button" class="remove-btn"
-                        onclick="removeCustomItem('${type}', '${item}')">×</button>`
-                }
-            </div>
-        `;
+                        onclick="removeCustomItem('${type}','${item}')">
+                        ×</button>`}
+            </div>`;
     }).join('');
 }
 
-async function restoreProfile() {
-    if (!confirm(
-        'Restore "' + profile.name + '" to its original default settings? ' +
-        'All your changes will be lost.'
-    )) return;
-
-    try {
-        const restored = await apiFetch(
-            '/profiles/' + encodeURIComponent(profile.name) + '/restore',
-            { method: 'POST' }
-        );
-
-        // clear saved full state so we start fresh from defaults
-        localStorage.removeItem('profileFullState_' + profile.name);
-
-        allIdentifiers = [...restored.accepted_identifiers];
-        allFormats = [...restored.accepted_formats];
-        allMetadata = [...restored.required_metadata_fields];
-        activeIdentifiers = [...restored.accepted_identifiers];
-        activeFormats = [...restored.accepted_formats];
-        activeMetadata = [...restored.required_metadata_fields];
-
-        document.getElementById('vocabulary-input').value =
-            restored.required_vocabulary || '';
-        document.getElementById('license-input').value =
-            restored.required_license || '';
-
-        localStorage.setItem('selectedProfile',
-            JSON.stringify({...profile, ...restored}));
-
-        renderAll();
-        validateProfile();
-        showSuccess('message-area', 'Profile restored to default settings.');
-    } catch(e) {
-        showError('message-area', 'Restore failed: ' + e.message);
+function renderVocabList() {
+    const container = document.getElementById('vocab-list');
+    if (customVocabularies.length === 0) {
+        container.innerHTML =
+            '<div style="font-size:0.8rem;color:#999;padding:0.25rem">' +
+            'No custom vocabularies added</div>';
+        return;
     }
+    container.innerHTML = customVocabularies.map((v, i) => `
+        <div class="item-row">
+            <span class="item-label">
+                <strong>${v.name}</strong>
+                ${v.keywords?.length
+                    ? `<span style="font-size:0.75rem;color:#666">
+                        — keywords: ${v.keywords.join(', ')}</span>`
+                    : ''}
+            </span>
+            <button type="button" class="remove-btn"
+                onclick="removeVocab(${i})">×</button>
+        </div>
+    `).join('');
 }
 
 function renderAll() {
-    renderList(allIdentifiers, activeIdentifiers, baselineIdentifiers,
-        'identifier-list', 'identifier');
-    renderList(allFormats, activeFormats, baselineFormats,
-        'format-list', 'format');
-    renderList(allMetadata, activeMetadata, baselineMetadata,
-        'metadata-list', 'metadata');
+    renderList(allIdentifiers, activeIdentifiers,
+        baselineIdentifiers, 'identifier-list', 'identifier');
+    renderList(allMetadata, activeMetadata,
+        baselineMetadata, 'metadata-list', 'metadata');
+    renderList(allFormats, activeFormats,
+        baselineFormats, 'format-list', 'format');
+    renderList(allLicenses, activeLicenses,
+        baselineLicenses, 'license-list', 'license');
+    renderList(allProvenance, activeProvenance,
+        baselineProvenance, 'provenance-list', 'provenance');
+    renderVocabList();
 }
 
 function toggleItem(type, value, checked) {
-    if (type === 'identifier') {
-        if (checked) {
-            if (!activeIdentifiers.includes(value)) activeIdentifiers.push(value);
-        } else {
-            activeIdentifiers = activeIdentifiers.filter(i => i !== value);
-        }
-    }
-    if (type === 'format') {
-        if (checked) {
-            if (!activeFormats.includes(value)) activeFormats.push(value);
-        } else {
-            activeFormats = activeFormats.filter(f => f !== value);
-        }
-    }
-    if (type === 'metadata') {
-        if (checked) {
-            if (!activeMetadata.includes(value)) activeMetadata.push(value);
-        } else {
-            activeMetadata = activeMetadata.filter(m => m !== value);
-        }
+    const maps = {
+        identifier: [activeIdentifiers],
+        format: [activeFormats],
+        metadata: [activeMetadata],
+        license: [activeLicenses],
+        provenance: [activeProvenance],
+    };
+    const arr = maps[type]?.[0];
+    if (!arr) return;
+    if (checked && !arr.includes(value)) arr.push(value);
+    if (!checked) {
+        const idx = arr.indexOf(value);
+        if (idx > -1) arr.splice(idx, 1);
     }
     renderAll();
     validateProfile();
 }
 
-// Only custom (non-baseline) items can be fully removed
 function removeCustomItem(type, value) {
-    if (type === 'identifier') {
-        allIdentifiers = allIdentifiers.filter(i => i !== value);
-        activeIdentifiers = activeIdentifiers.filter(i => i !== value);
-    }
-    if (type === 'format') {
-        allFormats = allFormats.filter(f => f !== value);
-        activeFormats = activeFormats.filter(f => f !== value);
-    }
-    if (type === 'metadata') {
-        allMetadata = allMetadata.filter(m => m !== value);
-        activeMetadata = activeMetadata.filter(m => m !== value);
-    }
+    const allMaps = {
+        identifier: allIdentifiers,
+        format: allFormats,
+        metadata: allMetadata,
+        license: allLicenses,
+        provenance: allProvenance,
+    };
+    const activeMaps = {
+        identifier: activeIdentifiers,
+        format: activeFormats,
+        metadata: activeMetadata,
+        license: activeLicenses,
+        provenance: activeProvenance,
+    };
+    const removeFrom = arr => {
+        const i = arr.indexOf(value);
+        if (i > -1) arr.splice(i, 1);
+    };
+    removeFrom(allMaps[type]);
+    removeFrom(activeMaps[type]);
     renderAll();
     validateProfile();
+}
+
+function removeVocab(index) {
+    customVocabularies.splice(index, 1);
+    renderVocabList();
 }
 
 function validateProfile() {
     const warnings = [];
     if (activeIdentifiers.length === 0)
-        warnings.push('No identifier types active — F1 check will always fail.');
-    if (activeMetadata.length === 0)
-        warnings.push('No metadata fields required — F2 check will pass trivially.');
+        warnings.push('No identifier types active — F1 will always fail.');
     if (activeFormats.length === 0)
-        warnings.push('No file formats specified — I1 and R1.3 checks will always fail.');
-
+        warnings.push('No formats specified — I1 and R1.3 will always fail.');
     const box = document.getElementById('warning-box');
-    if (warnings.length > 0) {
+    if (warnings.length) {
         box.style.display = 'block';
-        box.innerHTML = '⚠️ Configuration warnings:<br>' +
-            warnings.map(w => '· ' + w).join('<br>');
+        box.innerHTML = '⚠️ ' + warnings.join('<br>⚠️ ');
     } else {
         box.style.display = 'none';
     }
@@ -383,14 +643,79 @@ function openModal(type) {
     const titles = {
         identifier: 'Add Identifier Type',
         format: 'Add File Format',
-        metadata: 'Add Metadata Field'
+        metadata: 'Add Metadata Field',
+        license: 'Add License',
+        provenance: 'Add Provenance Field',
+        vocabulary: 'Add Custom Vocabulary',
     };
     document.getElementById('modal-title').textContent = titles[type];
-    document.getElementById('modal-name').value = '';
-    document.getElementById('modal-value').value = '';
-    document.getElementById('modal-desc').value = '';
+
+    let body = '';
+    if (type === 'vocabulary') {
+        body = `
+            <div class="form-group">
+                <label>Vocabulary name *</label>
+                <input type="text" id="modal-vocab-name"
+                    placeholder="e.g. AGROVOC, Gene Ontology">
+            </div>
+            <div class="form-group">
+                <label>Keywords to detect in metadata
+                    (comma separated)</label>
+                <input type="text" id="modal-vocab-keywords"
+                    placeholder="e.g. agrovoc, crop, soil">
+            </div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input type="text" id="modal-vocab-desc"
+                    placeholder="Brief description">
+            </div>`;
+    } else if (type === 'identifier') {
+        body = `
+            <div class="form-group">
+                <label>Identifier type name *</label>
+                <input type="text" id="modal-name"
+                    placeholder="e.g. ARK, w3id, ORCID">
+            </div>
+            <div class="form-group">
+                <label>Match type</label>
+                <select id="modal-match">
+                    <option value="starts_with">Starts with</option>
+                    <option value="contains">Contains</option>
+                    <option value="regex">Regex pattern</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Value to match *</label>
+                <input type="text" id="modal-value"
+                    placeholder="e.g. ark:, w3id.org, orcid.org">
+            </div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input type="text" id="modal-desc"
+                    placeholder="e.g. Archival Resource Key identifier">
+            </div>`;
+    } else {
+        const hints = {
+            format: 'e.g. csv, netcdf, json-ld, rdf',
+            metadata: 'e.g. spatial_coverage, organism, survey_method',
+            license: 'e.g. cc-by, cc0, gpl, apache',
+            provenance: 'e.g. methodology, institution, funding',
+        };
+        body = `
+            <div class="form-group">
+                <label>Name *</label>
+                <input type="text" id="modal-name"
+                    placeholder="${hints[type] || ''}">
+            </div>`;
+    }
+
+    document.getElementById('modal-body').innerHTML = body;
     document.getElementById('add-modal').classList.add('show');
-    document.getElementById('modal-name').focus();
+
+    setTimeout(() => {
+        const first = document.querySelector('#modal-body input');
+        if (first) first.focus();
+    }, 50);
 }
 
 function closeModal() {
@@ -398,55 +723,98 @@ function closeModal() {
 }
 
 function saveModalItem() {
-    const name = document.getElementById('modal-name').value.trim().toLowerCase();
-    if (!name) { alert('Please enter a name'); return; }
-
-    if (currentModalType === 'identifier') {
+    if (currentModalType === 'vocabulary') {
+        const name = document.getElementById('modal-vocab-name')
+            .value.trim();
+        if (!name) { alert('Please enter a vocabulary name'); return; }
+        const kws = document.getElementById('modal-vocab-keywords')
+            .value.split(',').map(k => k.trim()).filter(Boolean);
+        const desc = document.getElementById('modal-vocab-desc')
+            .value.trim();
+        customVocabularies.push({ name, keywords: kws, description: desc });
+        renderVocabList();
+    } else if (currentModalType === 'identifier') {
+        const name = document.getElementById('modal-name')
+            .value.trim().toLowerCase();
+        const matchType = document.getElementById('modal-match').value;
+        const value = document.getElementById('modal-value')
+            .value.trim().toLowerCase();
+        const desc = document.getElementById('modal-desc').value.trim();
+        if (!name || !value) {
+            alert('Please enter a name and match value'); return;
+        }
+        // add to custom identifiers for pattern matching
+        customIdentifiers.push(
+            { name, match_type: matchType, value, description: desc });
+        // also add to display list
         if (!allIdentifiers.includes(name)) allIdentifiers.push(name);
         if (!activeIdentifiers.includes(name)) activeIdentifiers.push(name);
+        renderAll();
+    } else {
+        const name = document.getElementById('modal-name')
+            .value.trim().toLowerCase();
+        if (!name) { alert('Please enter a name'); return; }
+        const allMap = {
+            format: allFormats,
+            metadata: allMetadata,
+            license: allLicenses,
+            provenance: allProvenance,
+        };
+        const activeMap = {
+            format: activeFormats,
+            metadata: activeMetadata,
+            license: activeLicenses,
+            provenance: activeProvenance,
+        };
+        if (!allMap[currentModalType].includes(name))
+            allMap[currentModalType].push(name);
+        if (!activeMap[currentModalType].includes(name))
+            activeMap[currentModalType].push(name);
+        renderAll();
     }
-    if (currentModalType === 'format') {
-        if (!allFormats.includes(name)) allFormats.push(name);
-        if (!activeFormats.includes(name)) activeFormats.push(name);
-    }
-    if (currentModalType === 'metadata') {
-        if (!allMetadata.includes(name)) allMetadata.push(name);
-        if (!activeMetadata.includes(name)) activeMetadata.push(name);
-    }
-
-    closeModal();
-    renderAll();
     validateProfile();
+    closeModal();
 }
-
-document.getElementById('modal-name').addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveModalItem();
-    if (e.key === 'Escape') closeModal();
-});
 
 async function saveProfile() {
     validateProfile();
     try {
         const updated = {
             accepted_identifiers: activeIdentifiers,
-            accepted_formats: activeFormats,
+            custom_identifiers: customIdentifiers,
             required_metadata_fields: activeMetadata,
+            custom_metadata_fields: customMetadata,
+            check_discoverability: document.getElementById(
+                'check-discoverability').checked,
+            accepted_formats: activeFormats,
             required_vocabulary:
-                document.getElementById('vocabulary-input').value.trim() || null,
+                document.getElementById('vocabulary-input')
+                    .value.trim() || null,
+            custom_vocabularies: customVocabularies,
+            require_related_resources:
+                document.getElementById('require-related').checked,
+            accepted_licenses: activeLicenses,
             required_license:
-                document.getElementById('license-input').value.trim() || null,
+                document.getElementById('license-input')
+                    .value.trim() || null,
+            required_provenance_fields: activeProvenance,
+            community_standard:
+                document.getElementById('community-standard')
+                    .value.trim() || null,
         };
 
-        // save full lists separately so unchecked items persist in the UI
-        const fullState = {
-            all_identifiers: allIdentifiers,
-            all_formats: allFormats,
-            all_metadata: allMetadata,
-        };
+        // save full state so unchecked items persist
         localStorage.setItem('profileFullState_' + profile.name,
-            JSON.stringify(fullState));
+            JSON.stringify({
+                all_identifiers: allIdentifiers,
+                all_formats: allFormats,
+                all_metadata: allMetadata,
+                all_licenses: allLicenses,
+                all_provenance: allProvenance,
+            }));
 
-        await apiFetch('/profiles/' + encodeURIComponent(profile.name), {
+        await apiFetch(
+            '/profiles/' + encodeURIComponent(profile.name), {
             method: 'PUT',
             body: JSON.stringify(updated)
         });
@@ -455,16 +823,43 @@ async function saveProfile() {
         showSuccess('message-area', 'Profile saved successfully.');
         setTimeout(() => window.location.href = 'index.html', 1000);
     } catch(e) {
-        showError('message-area', 'Failed to save: ' + e.message);
+        showError('message-area', 'Save failed: ' + e.message);
     }
 }
 
+async function restoreProfile() {
+    if (!confirm(
+        'Restore "' + profile.name +
+        '" to its original default settings?'
+    )) return;
+    try {
+        const restored = await apiFetch(
+            '/profiles/' + encodeURIComponent(profile.name) + '/restore',
+            { method: 'POST' }
+        );
+        localStorage.removeItem('profileFullState_' + profile.name);
+        location.reload();
+    } catch(e) {
+        showError('message-area', 'Restore failed: ' + e.message);
+    }
+}
+
+// init
 document.getElementById('profile-title').textContent =
     'Edit Profile: ' + (profile.name || '');
 document.getElementById('vocabulary-input').value =
     profile.required_vocabulary || '';
 document.getElementById('license-input').value =
     profile.required_license || '';
+document.getElementById('community-standard').value =
+    profile.community_standard || '';
+document.getElementById('check-discoverability').checked =
+    profile.check_discoverability !== false;
+document.getElementById('require-related').checked =
+    profile.require_related_resources === true;
+
 renderAll();
 validateProfile();
 </script>
+</body>
+</html>

@@ -2,8 +2,23 @@
   "name": "Agriculture Profile",
   "domain": "agriculture",
   "accepted_identifiers": ["doi"],
+  "custom_identifiers": [],
   "required_metadata_fields": ["title", "description", "creator", "license"],
+  "custom_metadata_fields": ["spatial_coverage", "crop_type", "soil_type"],
+  "check_discoverability": true,
   "accepted_formats": ["csv", "json-ld"],
   "required_vocabulary": "AGROVOC",
-  "required_license": "CC-BY"
+  "custom_vocabularies": [
+    {
+      "name": "AGROVOC",
+      "check_url": "https://agrovoc.fao.org/browse/agrovoc/en/",
+      "keywords": ["agrovoc", "crop", "soil", "agricultural"],
+      "description": "FAO agricultural vocabulary"
+    }
+  ],
+  "require_related_resources": false,
+  "accepted_licenses": ["cc-by", "cc0"],
+  "required_license": "CC-BY",
+  "required_provenance_fields": ["creator", "provenance_date", "description"],
+  "community_standard": "AGRIS"
 }
