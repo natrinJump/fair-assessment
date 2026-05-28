@@ -4,30 +4,27 @@ import re
 from app.models.metadata import NormalizedMetadata
 from app.models.profile import Profile, MetricResult, AssessmentReport
 
+
 def load_profile(profile_name: str) -> Profile:
     from app.services.profile_service import (
         get_profile_by_domain, get_profile_by_name
     )
-    # try domain lookup first
     p = get_profile_by_domain(profile_name)
     if p:
         return Profile(**p)
-    # try name lookup
     p = get_profile_by_name(profile_name)
     if p:
         return Profile(**p)
-    # fallback to generic_fair.json file
     path = os.path.join("profiles", "generic_fair.json")
     with open(path, "r") as f:
         return Profile(**json.load(f))
 
+
 def match_identifier(identifier: str, accepted: str,
                      custom_identifiers: list) -> bool:
-    """Check if identifier matches accepted type or any custom pattern."""
     id_lower = identifier.lower()
     accepted_lower = accepted.lower()
 
-    # built-in type matching
     if accepted_lower == "doi" and (
         id_lower.startswith("10.") or "doi.org/10." in id_lower
     ):
@@ -48,12 +45,9 @@ def match_identifier(identifier: str, accepted: str,
         id_lower.startswith("nc_") or id_lower.startswith("nm_")
     ):
         return True
-
-    # generic substring match
     if accepted_lower in id_lower:
         return True
 
-    # custom identifier patterns
     for custom in custom_identifiers:
         match_type = custom.get("match_type", "contains")
         value = custom.get("value", "").lower()
@@ -72,6 +66,7 @@ def match_identifier(identifier: str, accepted: str,
 
     return False
 
+
 def detect_identifier_type(identifier: str) -> str:
     id_lower = identifier.lower()
     if id_lower.startswith("10.") or "doi.org/10." in id_lower:
@@ -86,6 +81,7 @@ def detect_identifier_type(identifier: str) -> str:
         return "genbank"
     return "unknown"
 
+
 def check_vocabulary(metadata: NormalizedMetadata,
                      vocab_config: dict) -> bool:
     keywords = [k.lower() for k in vocab_config.get("keywords", [])]
@@ -96,23 +92,58 @@ def check_vocabulary(metadata: NormalizedMetadata,
         str(metadata.custom).lower()
     )
 
-    # check vocab name and common abbreviations
-    name_variants = [vocab_name]
-    # add abbreviation (first letters of each word)
-    abbrev = "".join(w[0] for w in vocab_name.split()
-                     if w).lower()
-    if len(abbrev) >= 2:
-        name_variants.append(abbrev)
+    # check full vocab name
+    if vocab_name and vocab_name in search_text:
+        return True
 
-    for variant in name_variants:
-        if variant and variant in search_text:
-            return True
+    # check abbreviation (first letters of each word)
+    abbrev = "".join(w[0] for w in vocab_name.split() if w).lower()
+    if len(abbrev) >= 2 and abbrev in search_text:
+        return True
 
+    # check keywords
     for kw in keywords:
         if kw and kw in search_text:
             return True
 
+    # check if all significant words of vocab name appear in search text
+    words = [w for w in vocab_name.split() if len(w) > 3]
+    if words and all(w in search_text for w in words):
+        return True
+
     return False
+
+
+def get_maturity(score: float) -> tuple:
+    if score >= 80:
+        return (
+            "Advanced",
+            "Dataset demonstrates strong FAIRness. Most FAIR "
+            "requirements are met. Focus on remaining gaps to "
+            "reach full compliance."
+        )
+    elif score >= 60:
+        return (
+            "Intermediate",
+            "Dataset meets core FAIR requirements but has notable "
+            "gaps. Review failed and partial metrics and address "
+            "recommendations to improve."
+        )
+    elif score >= 40:
+        return (
+            "Initial",
+            "Dataset has basic FAIR elements but significant "
+            "improvements are needed across multiple principles. "
+            "Prioritise essential metrics first."
+        )
+    else:
+        return (
+            "Incomplete",
+            "Dataset does not yet meet basic FAIR requirements. "
+            "Start with essential metrics: persistent identifier, "
+            "basic metadata fields, and a machine-readable license."
+        )
+
 
 # ─── F Metrics ────────────────────────────────────────────────
 
@@ -132,10 +163,8 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                    if profile.custom_identifiers else "")
         )
 
-    all_accepted = profile.accepted_identifiers
-    for accepted in all_accepted:
-        if match_identifier(identifier, accepted,
-                            profile.custom_identifiers):
+    for accepted in profile.accepted_identifiers:
+        if match_identifier(identifier, accepted, profile.custom_identifiers):
             return MetricResult(
                 metric_id="F1",
                 principle="F",
@@ -146,7 +175,6 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                     f"(matches accepted type: {accepted})"
             )
 
-    # check custom identifiers only
     for custom in profile.custom_identifiers:
         if match_identifier(identifier, custom.get("name", ""),
                             profile.custom_identifiers):
@@ -170,12 +198,12 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         description="Identifier found but type not accepted by this profile",
         evidence=f"Identifier: {identifier} (detected type: {detected_type})",
         recommendation=f"Identifier type '{detected_type}' is not accepted. "
-            f"This profile accepts: "
-            f"{', '.join(profile.accepted_identifiers)}"
+            f"This profile accepts: {', '.join(profile.accepted_identifiers)}"
             + (f" plus {len(profile.custom_identifiers)} custom type(s)"
                if profile.custom_identifiers else "")
-            + f". Update the profile or use an accepted identifier type."
+            + ". Update the profile or use an accepted identifier type."
     )
+
 
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
@@ -195,9 +223,7 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     missing = []
     present = []
     for field in all_required:
-        # check core fields
         value = getattr(core, field, None)
-        # check custom fields
         if value is None:
             value = metadata.custom.get(field)
         if value:
@@ -238,6 +264,7 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             f"This profile requires: {', '.join(all_required)}"
     )
 
+
 def check_f3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     if metadata.core.identifier and metadata.core.access_url:
         return MetricResult(
@@ -257,6 +284,7 @@ def check_f3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         recommendation="Ensure metadata explicitly references the "
             "dataset identifier"
     )
+
 
 def check_f4(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     if not profile.check_discoverability:
@@ -286,6 +314,7 @@ def check_f4(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         recommendation="Ensure dataset has a resolvable access URL"
     )
 
+
 # ─── A Metrics ────────────────────────────────────────────────
 
 def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
@@ -307,6 +336,7 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         description="No HTTP/HTTPS access URL found",
         recommendation="Provide an access URL using HTTP or HTTPS"
     )
+
 
 def check_a1_1(metadata: NormalizedMetadata,
                profile: Profile) -> MetricResult:
@@ -339,11 +369,13 @@ def check_a1_1(metadata: NormalizedMetadata,
         recommendation="Use HTTPS to make metadata accessible"
     )
 
+
 def check_a1_2(metadata: NormalizedMetadata,
                profile: Profile) -> MetricResult:
     license_val = metadata.core.license
     open_licenses = ["cc0", "cc-by", "cc by", "public domain",
-                     "open", "mit", "apache", "bsd"]
+                     "open", "mit", "apache", "bsd",
+                     "creativecommons.org"]
     is_open = license_val and any(
         l in license_val.lower() for l in open_licenses
     )
@@ -375,6 +407,7 @@ def check_a1_2(metadata: NormalizedMetadata,
         description="No access or license information found",
         recommendation="Add access rights information to metadata"
     )
+
 
 def check_a2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     if metadata.core.identifier and metadata.core.access_url:
@@ -408,13 +441,13 @@ def check_a2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             "is no longer available"
     )
 
+
 # ─── I Metrics ────────────────────────────────────────────────
 
 def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     formats = [f.lower() for f in metadata.core.formats]
     accepted = [f.lower() for f in profile.accepted_formats]
-    matched = [f for f in formats if any(a in f or f in a
-                                         for a in accepted)]
+    matched = [f for f in formats if any(a in f or f in a for a in accepted)]
     if matched:
         return MetricResult(
             metric_id="I1",
@@ -445,6 +478,7 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         recommendation=f"Specify the data format. "
             f"This profile accepts: {', '.join(profile.accepted_formats)}"
     )
+
 
 def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     all_vocabs = []
@@ -514,9 +548,11 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             status="partial",
             description="Some required vocabularies not detected",
             evidence=f"Found: {', '.join(passed)} | "
-                f"Missing: {', '.join(failed)}",
+                f"Not detected: {', '.join(failed)}. "
+                f"Note: detection depends on repository API response.",
             recommendation=f"Add references to: {', '.join(failed)}. "
-                f"Ensure metadata terms use these vocabularies"
+                f"Ensure metadata uses these vocabularies and that "
+                f"the repository exposes them through its API."
         )
     return MetricResult(
         metric_id="I2",
@@ -524,10 +560,15 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         priority="important",
         status="fail",
         description="Required vocabularies not detected in metadata",
-        evidence=f"Required but not found: {', '.join(failed)}",
+        evidence=f"Required but not found: {', '.join(failed)}. "
+            f"Note: vocabulary detection depends on the repository "
+            f"exposing vocabulary references in their API response.",
         recommendation=f"This profile requires: {', '.join(failed)}. "
-            f"Ensure metadata uses these controlled vocabularies"
+            f"Ensure metadata uses these controlled vocabularies and "
+            f"that your repository exposes vocabulary references "
+            f"through its metadata API."
     )
+
 
 def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     custom_str = str(metadata.custom).lower()
@@ -575,6 +616,7 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         recommendation="Consider adding references to related datasets "
             "or publications to improve interoperability"
     )
+
 
 # ─── R Metrics ────────────────────────────────────────────────
 
@@ -624,7 +666,9 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         recommendation=f"Add required fields: {', '.join(all_fields)}"
     )
 
-def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+
+def check_r1_1(metadata: NormalizedMetadata,
+               profile: Profile) -> MetricResult:
     license_val = metadata.core.license
     accepted = [l.lower() for l in profile.accepted_licenses]
     required = profile.required_license
@@ -636,15 +680,15 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="fail",
             description="No license found in metadata",
-            recommendation=f"Add a machine-readable license"
+            recommendation="Add a machine-readable license"
                 + (f" — this profile requires: {required}"
                    if required else
-                   f". Accepted: {', '.join(profile.accepted_licenses)}")
+                   (f". Accepted: {', '.join(profile.accepted_licenses)}"
+                    if profile.accepted_licenses else ""))
         )
 
     license_lower = license_val.lower()
 
-    # expanded matching — check common license URL patterns
     license_aliases = {
         "cc-by": ["cc-by", "creativecommons.org/licenses/by",
                   "cc by", "attribution"],
@@ -658,13 +702,11 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         "bsd": ["bsd", "opensource.org/licenses/bsd"],
     }
 
-    def matches_license(accepted_name: str,
-                        license_text: str) -> bool:
+    def matches_license(accepted_name: str, license_text: str) -> bool:
         name = accepted_name.lower()
         aliases = license_aliases.get(name, [name])
         return any(alias in license_text for alias in aliases)
 
-    # check required license
     if required and not matches_license(required, license_lower):
         return MetricResult(
             metric_id="R1.1",
@@ -677,7 +719,6 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 f"requires: {required}"
         )
 
-    # check accepted licenses list
     if accepted:
         if any(matches_license(a, license_lower) for a in accepted):
             return MetricResult(
@@ -708,7 +749,9 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         evidence=f"License: {license_val}"
     )
 
-def check_r1_2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+
+def check_r1_2(metadata: NormalizedMetadata,
+               profile: Profile) -> MetricResult:
     core = metadata.core
     required_fields = profile.required_provenance_fields
     field_map = {
@@ -758,11 +801,12 @@ def check_r1_2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             f"{', '.join(required_fields)}"
     )
 
-def check_r1_3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+
+def check_r1_3(metadata: NormalizedMetadata,
+               profile: Profile) -> MetricResult:
     formats = [f.lower() for f in metadata.core.formats]
     accepted = [f.lower() for f in profile.accepted_formats]
     standard = profile.community_standard
-
     matched = [f for f in formats if any(a in f or f in a for a in accepted)]
 
     if matched:
@@ -771,7 +815,7 @@ def check_r1_3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             principle="R",
             priority="essential",
             status="pass",
-            description=f"Data follows community standards"
+            description="Data follows community standards"
                 + (f" ({standard})" if standard else ""),
             evidence=f"Standard format detected: {', '.join(matched)}"
         )
@@ -797,6 +841,7 @@ def check_r1_3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             f"This profile requires: {', '.join(profile.accepted_formats)}"
     )
 
+
 # ─── Scoring ──────────────────────────────────────────────────
 
 METRIC_WEIGHTS = {
@@ -817,6 +862,7 @@ METRIC_WEIGHTS = {
     "R1.3": 1.0,
 }
 
+
 def calculate_score(results: list, principle: str) -> float:
     principle_results = [r for r in results if r.principle == principle]
     if not principle_results:
@@ -831,6 +877,7 @@ def calculate_score(results: list, principle: str) -> float:
         elif r.status == "partial":
             earned += weight * 0.5
     return round((earned / total_weight) * 100, 1)
+
 
 def run_assessment(metadata: NormalizedMetadata,
                    profile_name: str = "generic") -> AssessmentReport:
@@ -859,7 +906,6 @@ def run_assessment(metadata: NormalizedMetadata,
     i_score = calculate_score(results, "I")
     r_score = calculate_score(results, "R")
     overall = round((f_score + a_score + i_score + r_score) / 4, 1)
-
     maturity, maturity_desc = get_maturity(overall)
 
     return AssessmentReport(
@@ -874,33 +920,3 @@ def run_assessment(metadata: NormalizedMetadata,
         maturity_description=maturity_desc,
         results=results
     )
-
-def get_maturity(score: float) -> tuple:
-    if score >= 80:
-        return (
-            "Advanced",
-            "Dataset demonstrates strong FAIRness. Most FAIR "
-            "requirements are met. Focus on remaining gaps to "
-            "reach full compliance."
-        )
-    elif score >= 60:
-        return (
-            "Intermediate",
-            "Dataset meets core FAIR requirements but has notable "
-            "gaps. Review failed and partial metrics and address "
-            "recommendations to improve."
-        )
-    elif score >= 40:
-        return (
-            "Initial",
-            "Dataset has basic FAIR elements but significant "
-            "improvements are needed across multiple principles. "
-            "Prioritise essential metrics first."
-        )
-    else:
-        return (
-            "Incomplete",
-            "Dataset does not yet meet basic FAIR requirements. "
-            "Start with essential metrics: persistent identifier, "
-            "basic metadata fields, and a machine-readable license."
-        )
