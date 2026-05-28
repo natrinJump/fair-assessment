@@ -65,4 +65,6 @@ class AssessmentReport(BaseModel):
     a_score: float
     i_score: float
     r_score: float
+    maturity_level: str = ""
+    maturity_description: str = ""
     results: list[MetricResult]
