@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.db import create_db
@@ -8,12 +8,24 @@ from app.services.evaluator import run_assessment
 from app.services.profile_service import (
     get_all_profiles, get_profile_by_name,
     create_profile, update_profile,
-    delete_profile, seed_profiles
+    delete_profile, seed_profiles,
+    get_profile_by_domain
 )
 from app.services.history_service import (
     save_assessment, get_history_by_doi, get_all_history,
     get_assessment_by_id, delete_assessment
 )
+
+def get_custom_fields_for_profile(profile_name: str) -> list:
+    profile_data = get_profile_by_domain(profile_name)
+    if not profile_data:
+        profile_data = get_profile_by_name(profile_name)
+    if profile_data:
+        return (
+            profile_data.get("custom_metadata_fields", []) +
+            profile_data.get("required_metadata_fields", [])
+        )
+    return []
 
 def generate_turtle(profile: dict) -> str:
     name = profile["name"]
@@ -193,7 +205,7 @@ def generate_turtle(profile: dict) -> str:
 
     return "\n".join(lines)
 
-def normalize_by_source(raw: dict, doi: str):
+def normalize_by_source(raw: dict, doi: str, custom_fields: list = None):
     from app.services.normalizer import (
         normalize_datacite, normalize_generic, normalize_ark, normalize_url
     )
@@ -238,18 +250,48 @@ async def get_metadata(doi: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/assess/{doi:path}")
-async def assess(doi: str, profile: str = "generic_fair"):
+async def assess(doi: str, profile: str = "generic"):
     try:
         raw = await fetch_by_doi(doi)
-        normalized = normalize_by_source(raw, doi)
+        custom_fields = get_custom_fields_for_profile(profile)
+        normalized = normalize_by_source(raw, doi, custom_fields)
         report = run_assessment(normalized, profile)
-        save_assessment(report)
+
+        # save profile snapshot with assessment
+        profile_data = get_profile_by_domain(profile)
+        if not profile_data:
+            profile_data = get_profile_by_name(profile)
+
+        save_assessment(report, profile_snapshot=profile_data)
         return report
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/assess/upload")
+async def assess_upload(
+    file: UploadFile = File(...),
+    profile: str = "generic"
+):
+    try:
+        content = await file.read()
+        filename = file.filename.lower()
+        from app.services.normalizer import normalize_from_upload
+        normalized = normalize_from_upload(content, filename, profile)
+        report = run_assessment(normalized, profile)
+
+        profile_data = get_profile_by_domain(profile)
+        if not profile_data:
+            profile_data = get_profile_by_name(profile)
+
+        save_assessment(report, profile_snapshot=profile_data)
+        return report
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/profiles")
 def list_profiles():
     return get_all_profiles()

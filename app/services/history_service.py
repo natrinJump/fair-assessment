@@ -4,7 +4,8 @@ from sqlmodel import Session, select
 from app.db import AssessmentHistoryDB, engine
 from app.models.profile import AssessmentReport
 
-def save_assessment(report: AssessmentReport):
+def save_assessment(report: AssessmentReport,
+                    profile_snapshot: dict = None):
     with Session(engine) as session:
         record = AssessmentHistoryDB(
             doi=report.doi,
@@ -14,7 +15,10 @@ def save_assessment(report: AssessmentReport):
             a_score=report.a_score,
             i_score=report.i_score,
             r_score=report.r_score,
+            maturity_level=report.maturity_level or "",
+            maturity_description=report.maturity_description or "",
             results_json=json.dumps([r.dict() for r in report.results]),
+            profile_snapshot=json.dumps(profile_snapshot or {}),
             created_at=datetime.now().isoformat(),
         )
         session.add(record)
@@ -25,7 +29,7 @@ def get_history_by_doi(doi: str):
         records = session.exec(
             select(AssessmentHistoryDB)
             .where(AssessmentHistoryDB.doi == doi)
-            .order_by(AssessmentHistoryDB.created_at)
+            .order_by(AssessmentHistoryDB.created_at.desc())
         ).all()
         return [_to_dict(r) for r in records]
 
@@ -63,6 +67,9 @@ def _to_dict(r: AssessmentHistoryDB):
         "a_score": r.a_score,
         "i_score": r.i_score,
         "r_score": r.r_score,
+        "maturity_level": r.maturity_level or "",
+        "maturity_description": r.maturity_description or "",
         "created_at": r.created_at,
         "results": json.loads(r.results_json),
+        "profile_snapshot": json.loads(r.profile_snapshot or "{}"),
     }

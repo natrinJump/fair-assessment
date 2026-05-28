@@ -9,7 +9,6 @@ class ProfileDB(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     domain: str
-    # stored as JSON strings
     accepted_identifiers: str = "[]"
     custom_identifiers: str = "[]"
     required_metadata_fields: str = "[]"
@@ -34,7 +33,10 @@ class AssessmentHistoryDB(SQLModel, table=True):
     a_score: float
     i_score: float
     r_score: float
+    maturity_level: str = ""
+    maturity_description: str = ""
     results_json: str
+    profile_snapshot: str = "{}"
     created_at: str
 
 def create_db():

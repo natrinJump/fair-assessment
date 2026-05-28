@@ -601,7 +601,7 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             status="fail",
             description="No qualified references found — required by "
                 "this profile",
-            evidence="No relatedIdentifiers or citation fields detected",
+            evidence="No related Identifiers or citation fields detected",
             recommendation="Add qualified references to related datasets, "
                 "publications, or derived resources"
         )

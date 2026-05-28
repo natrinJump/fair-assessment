@@ -221,9 +221,8 @@ async function loadHistory() {
                                 </div>
                                 <div style="display:flex;align-items:center;gap:1rem">
                                     <div style="text-align:right">
-                                        <div class="run-score">
-                                            ${formatScore(run.overall_score)}
-                                        </div>
+                                        <div class="run-score">${formatScore(run.overall_score)}</div>
+                                        ${run.maturity_level ? `<div style="font-size:0.7rem;font-weight:600;color:${run.maturity_level === 'Advanced' ? '#0f9d58' : run.maturity_level === 'Intermediate' ? '#1a73e8' : run.maturity_level === 'Initial' ? '#f4b400' : '#9e9e9e'}">${run.maturity_level}</div>` : ''}
                                         <div style="font-size:0.72rem;color:#666">
                                             F:${Math.round(run.f_score)}
                                             A:${Math.round(run.a_score)}
@@ -269,65 +268,95 @@ async function loadHistory() {
 function renderRunDetails(run) {
     if (!run.results) return '<p style="color:#666;font-size:0.875rem">No details available.</p>';
 
-    const scoreHtml = `
-        <div class="mini-scores">
-            <div class="mini-score overall">
-                <div class="label">Overall</div>
-                <div class="value">${formatScore(run.overall_score)}</div>
-            </div>
-            <div class="mini-score f">
-                <div class="label">Findable</div>
-                <div class="value">${formatScore(run.f_score)}</div>
-            </div>
-            <div class="mini-score a">
-                <div class="label">Accessible</div>
-                <div class="value">${formatScore(run.a_score)}</div>
-            </div>
-            <div class="mini-score i">
-                <div class="label">Interoperable</div>
-                <div class="value">${formatScore(run.i_score)}</div>
-            </div>
-            <div class="mini-score r">
-                <div class="label">Reusable</div>
-                <div class="value">${formatScore(run.r_score)}</div>
-            </div>
-        </div>
-    `;
+    const maturityColors = {
+        'Advanced': '#0f9d58',
+        'Intermediate': '#1a73e8',
+        'Initial': '#f4b400',
+        'Incomplete': '#9e9e9e'
+    };
+    const maturityBg = {
+        'Advanced': '#e6f4ea',
+        'Intermediate': '#e8f0fe',
+        'Initial': '#fef7e0',
+        'Incomplete': '#f5f5f5'
+    };
 
-    const metricsHtml = run.results.map(r => `
-        <div class="metric-mini">
-            <div class="dot ${r.status}"></div>
-            <div>
-                <div class="mid-text">
-                    <strong>${r.metric_id}</strong> —
-                    ${r.description}
-                    <span style="font-size:0.7rem;color:#888">(${r.priority})</span>
-                </div>
-                ${r.evidence
-                    ? `<div style="font-size:0.75rem;color:#555;margin-top:2px">
-                        ✓ ${r.evidence}</div>` : ''}
-                ${r.recommendation
-                    ? `<div class="rec">→ ${r.recommendation}</div>` : ''}
-            </div>
-        </div>
-    `).join('');
+    var html = '';
 
-    const recs = run.results.filter(r => r.recommendation);
-    const recsHtml = recs.length > 0
-        ? `<div style="margin-top:0.75rem;padding-top:0.75rem;
-            border-top:1px solid #e0e0e0">
-            <div style="font-size:0.8rem;font-weight:600;margin-bottom:0.5rem">
-                Recommendations:
-            </div>
-            ${recs.map(r =>
-                `<div style="font-size:0.8rem;color:#d93025;margin-bottom:0.25rem">
-                    · ${r.recommendation}
-                </div>`
-            ).join('')}
-          </div>`
-        : '';
+    // maturity level
+    if (run.maturity_level) {
+        var mc = maturityColors[run.maturity_level] || '#666';
+        var mb = maturityBg[run.maturity_level] || '#f5f5f5';
+        html += '<div style="margin-bottom:0.75rem;padding:0.6rem 0.75rem;' +
+            'border-radius:6px;border-left:4px solid ' + mc + ';background:' + mb + '">' +
+            '<div style="font-size:0.75rem;color:#666">Maturity Level</div>' +
+            '<div style="font-weight:700;color:' + mc + '">' + run.maturity_level + '</div>' +
+            '<div style="font-size:0.75rem;color:#555;margin-top:2px">' +
+            run.maturity_description + '</div>' +
+            '</div>';
+    }
 
-    return scoreHtml + metricsHtml + recsHtml;
+    // profile snapshot
+    var snap = run.profile_snapshot;
+    if (snap && snap.name) {
+        html += '<div style="margin-bottom:0.75rem;padding:0.6rem 0.75rem;' +
+            'background:#f8f9fa;border-radius:6px;font-size:0.8rem">' +
+            '<div style="font-weight:600;margin-bottom:0.35rem;color:#444">' +
+            'Profile used: ' + snap.name + '</div>' +
+            '<div style="color:#666">' +
+            'Identifiers: ' + (snap.accepted_identifiers || []).join(', ') + '</div>' +
+            '<div style="color:#666">' +
+            'Formats: ' + (snap.accepted_formats || []).join(', ') + '</div>' +
+            '<div style="color:#666">' +
+            'Required fields: ' + (snap.required_metadata_fields || []).join(', ') + '</div>' +
+            (snap.required_vocabulary
+                ? '<div style="color:#666">Vocabulary: ' + snap.required_vocabulary + '</div>'
+                : '') +
+            '</div>';
+    }
+
+    // scores
+    html += '<div class="mini-scores">';
+    html += '<div class="mini-score overall"><div class="label">Overall</div>' +
+        '<div class="value">' + formatScore(run.overall_score) + '</div></div>';
+    html += '<div class="mini-score f"><div class="label">Findable</div>' +
+        '<div class="value">' + formatScore(run.f_score) + '</div></div>';
+    html += '<div class="mini-score a"><div class="label">Accessible</div>' +
+        '<div class="value">' + formatScore(run.a_score) + '</div></div>';
+    html += '<div class="mini-score i"><div class="label">Interoperable</div>' +
+        '<div class="value">' + formatScore(run.i_score) + '</div></div>';
+    html += '<div class="mini-score r"><div class="label">Reusable</div>' +
+        '<div class="value">' + formatScore(run.r_score) + '</div></div>';
+    html += '</div>';
+
+    run.results.forEach(function(r) {
+        html += '<div class="metric-mini">';
+        html += '<div class="dot ' + r.status + '"></div>';
+        html += '<div><div class="mid-text"><strong>' + r.metric_id +
+            '</strong> &mdash; ' + r.description;
+        html += ' <span style="font-size:0.7rem;color:#888">(' +
+            r.priority + ')</span></div>';
+        if (r.evidence) html += '<div style="font-size:0.75rem;color:#555;' +
+            'margin-top:2px">&#10003; ' + r.evidence + '</div>';
+        if (r.recommendation) html += '<div class="rec">&rarr; ' +
+            r.recommendation + '</div>';
+        html += '</div></div>';
+    });
+
+    var recs = run.results.filter(function(r) { return r.recommendation; });
+    if (recs.length > 0) {
+        html += '<div style="margin-top:0.75rem;padding-top:0.75rem;' +
+            'border-top:1px solid #e0e0e0">';
+        html += '<div style="font-size:0.8rem;font-weight:600;' +
+            'margin-bottom:0.5rem">Recommendations:</div>';
+        recs.forEach(function(r) {
+            html += '<div style="font-size:0.8rem;color:#d93025;' +
+                'margin-bottom:0.25rem">&middot; ' + r.recommendation + '</div>';
+        });
+        html += '</div>';
+    }
+
+    return html;
 }
 
 function toggleRun(id) {
