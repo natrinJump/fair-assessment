@@ -40,6 +40,7 @@
     <h1>FAIR Assessment Tool</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
+    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
     <a href="about.html">About</a>
 </nav>
@@ -48,15 +49,15 @@
     <div class="card">
         <h2>Run Assessment</h2>
         <div class="input-group">
-            <div class="input-row">
-                <input type="text" id="doi-input" list="doi-suggestions"
-                    placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
-                <datalist id="doi-suggestions"></datalist>
-                <select id="profile-select"></select>
-                <button type="button" class="btn btn-primary"
-                    onclick="runAssessment()">Run Assessment</button>
-            </div>
-        </div>
+    <div class="input-row">
+        <input type="text" id="doi-input" list="doi-suggestions"
+            placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
+        <datalist id="doi-suggestions"></datalist>
+        <select id="profile-select"></select>
+        <button type="button" class="btn btn-primary"
+            onclick="runAssessment()">Run Assessment</button>
+    </div>
+</div>
         <div id="message-area"></div>
     </div>
 
@@ -99,6 +100,21 @@
     Details:
 </h3>
 <div id="metric-results"></div>
+<div id="custom-section" style="display:none">
+    <hr class="section-divider">
+    <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.5rem">
+        Domain-Specific Metrics
+        <span style="font-size:0.75rem;color:#9c27b0;background:#f3e8fd;
+            padding:2px 8px;border-radius:12px;font-weight:600;
+            margin-left:8px">custom metrics</span>
+    </h3>
+    <p style="font-size:0.78rem;color:#888;margin-bottom:0.75rem">
+        These checks are based on domain-specific fields defined in your
+        profile. Results depend on whether the repository exposes these
+        fields through its API.
+    </p>
+    <div id="custom-results"></div>
+</div>
 
             <hr class="section-divider">
             <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
@@ -123,12 +139,18 @@ let lastReport = null;
 async function loadProfiles() {
     try {
         const profiles = await apiFetch('/profiles');
-        const select = document.getElementById('profile-select');
-        select.innerHTML = profiles.map(p =>
+        const options = profiles.map(p =>
             `<option value="${p.domain}">${p.name}</option>`
         ).join('');
-        const saved = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
-        if (saved.domain) select.value = saved.domain;
+        document.getElementById('profile-select').innerHTML = options;
+        const fileSelect = document.getElementById('profile-select-file');
+        if (fileSelect) fileSelect.innerHTML = options;
+        const saved = JSON.parse(
+            localStorage.getItem('selectedProfile') || '{}');
+        if (saved.domain) {
+            document.getElementById('profile-select').value = saved.domain;
+            if (fileSelect) fileSelect.value = saved.domain;
+        }
     } catch(e) {
         console.error('Could not load profiles', e);
     }
@@ -186,47 +208,78 @@ function renderReport(report) {
         formatScore(report.i_score);
     document.getElementById('score-r').textContent =
         formatScore(report.r_score);
-    if (report.maturity_level) {
-    const colors = {
-        'Advanced': '#0f9d58',
-        'Intermediate': '#1a73e8',
-        'Initial': '#f4b400',
-        'Incomplete': '#9e9e9e'
-    };
-    const backgrounds = {
-        'Advanced': '#e6f4ea',
-        'Intermediate': '#e8f0fe',
-        'Initial': '#fef7e0',
-        'Incomplete': '#f5f5f5'
-    };
-    const box = document.getElementById('maturity-box');
-    const level = document.getElementById('maturity-level');
-    const desc = document.getElementById('maturity-desc');
-    box.style.display = 'block';
-    box.style.borderLeftColor = colors[report.maturity_level] || '#1a73e8';
-    box.style.background = backgrounds[report.maturity_level] || '#f0f7ff';
-    level.textContent = report.maturity_level;
-    level.style.color = colors[report.maturity_level] || '#1a73e8';
-    desc.textContent = report.maturity_description;
-}
 
-    const metricContainer = document.getElementById('metric-results');
-    metricContainer.innerHTML = report.results.map(r => `
-        <div class="metric-result ${r.status}">
-            <div class="metric-header">
-                <span class="metric-id">${r.metric_id}</span>
-                <span class="metric-desc">${r.description}</span>
-                <span class="badge ${r.status}">${r.status}</span>
-                <span class="badge ${r.priority}">${r.priority}</span>
+    if (report.maturity_level) {
+        const colors = {
+            'Advanced': '#0f9d58', 'Intermediate': '#1a73e8',
+            'Initial': '#f4b400', 'Incomplete': '#9e9e9e'
+        };
+        const backgrounds = {
+            'Advanced': '#e6f4ea', 'Intermediate': '#e8f0fe',
+            'Initial': '#fef7e0', 'Incomplete': '#f5f5f5'
+        };
+        const box = document.getElementById('maturity-box');
+        const level = document.getElementById('maturity-level');
+        const desc = document.getElementById('maturity-desc');
+        box.style.display = 'block';
+        box.style.borderLeftColor = colors[report.maturity_level] || '#1a73e8';
+        box.style.background = backgrounds[report.maturity_level] || '#f0f7ff';
+        level.textContent = report.maturity_level;
+        level.style.color = colors[report.maturity_level] || '#1a73e8';
+        desc.textContent = report.maturity_description;
+    }
+
+    const standardResults = report.results.filter(r => !r.is_custom);
+    const customResults = report.results.filter(r => r.is_custom);
+
+    document.getElementById('metric-results').innerHTML =
+        standardResults.map(r => `
+            <div class="metric-result ${r.status}">
+                <div class="metric-header">
+                    <span class="metric-id">${r.metric_id}</span>
+                    <span class="metric-desc">${r.description}</span>
+                    <span class="badge ${r.status}">${r.status}</span>
+                    <span class="badge ${r.priority}">${r.priority}</span>
+                </div>
+                ${r.evidence
+                    ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
+                    : ''}
+                ${r.recommendation
+                    ? `<div class="metric-recommendation">
+                        → ${r.recommendation}</div>`
+                    : ''}
             </div>
-            ${r.evidence
-                ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
-                : ''}
-            ${r.recommendation
-                ? `<div class="metric-recommendation">→ ${r.recommendation}</div>`
-                : ''}
-        </div>
-    `).join('');
+        `).join('');
+
+    const customSection = document.getElementById('custom-section');
+    if (customResults.length > 0) {
+        customSection.style.display = 'block';
+        document.getElementById('custom-results').innerHTML =
+            customResults.map(r => `
+                <div class="metric-result ${r.status}">
+                    <div class="metric-header">
+                        <span class="metric-id"
+                            style="font-size:0.75rem">${r.metric_id}</span>
+                        <span class="metric-desc">${r.description}</span>
+                        <span class="badge ${r.status}">${r.status}</span>
+                        <span style="font-size:0.7rem;color:#9c27b0;
+                            background:#f3e8fd;padding:2px 8px;
+                            border-radius:12px;font-weight:600">
+                            custom metric
+                        </span>
+                    </div>
+                    ${r.evidence
+                        ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
+                        : ''}
+                    ${r.recommendation
+                        ? `<div class="metric-recommendation">
+                            → ${r.recommendation}</div>`
+                        : ''}
+                </div>
+            `).join('');
+    } else {
+        customSection.style.display = 'none';
+    }
 
     const recs = report.results.filter(r => r.recommendation);
     const recContainer = document.getElementById('recommendations');
@@ -238,8 +291,11 @@ function renderReport(report) {
         recContainer.innerHTML = recs.map(r =>
             `<div style="font-size:0.875rem;margin-bottom:0.5rem;
                 padding:0.5rem;background:#fafafa;border-radius:4px;
-                border-left:3px solid #db4437">
+                border-left:3px solid ${r.is_custom ? '#9c27b0' : '#db4437'}">
                 <strong>${r.metric_id}:</strong> ${r.recommendation}
+                ${r.is_custom
+                    ? '<em style="color:#9c27b0;font-size:0.8rem"> (custom metric)</em>'
+                    : ''}
             </div>`
         ).join('');
     }

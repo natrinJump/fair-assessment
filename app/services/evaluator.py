@@ -144,6 +144,42 @@ def get_maturity(score: float) -> tuple:
             "basic metadata fields, and a machine-readable license."
         )
 
+def check_custom_metadata(metadata: NormalizedMetadata,
+                          profile: Profile) -> list:
+    """
+    Generate individual metric results for each custom
+    domain-specific field — shown separately in the report.
+    """
+    results = []
+    for field in profile.custom_metadata_fields:
+        value = getattr(metadata.core, field, None)
+        if value is None:
+            value = metadata.custom.get(field)
+
+        if value:
+            results.append(MetricResult(
+                metric_id=f"CUSTOM-{field.upper()}",
+                principle="F",
+                priority="important",
+                status="pass",
+                description=f"Domain-specific field '{field}' is present",
+                evidence=f"{field}: {str(value)[:100]}",
+                is_custom=True
+            ))
+        else:
+            results.append(MetricResult(
+                metric_id=f"CUSTOM-{field.upper()}",
+                principle="F",
+                priority="important",
+                status="fail",
+                description=f"Domain-specific field '{field}' not found",
+                evidence=f"'{field}' not detected in repository metadata",
+                recommendation=f"'{field}' is required by this profile but "
+                    f"not exposed by the repository API. Consider adding "
+                    f"it to your dataset's metadata record.",
+                is_custom=True
+            ))
+    return results
 
 # ─── F Metrics ────────────────────────────────────────────────
 
@@ -207,8 +243,9 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    all_required = (profile.required_metadata_fields +
-                    profile.custom_metadata_fields)
+    standard_fields = profile.required_metadata_fields
+    custom_fields = profile.custom_metadata_fields
+    all_required = standard_fields + custom_fields
 
     if not all_required:
         return MetricResult(
@@ -217,19 +254,34 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="pass",
             description="No specific metadata fields required by this profile",
-            evidence="No required fields configured"
+            evidence="No required fields configured",
+            is_custom=False
         )
 
-    missing = []
+    missing_standard = []
+    missing_custom = []
     present = []
-    for field in all_required:
+
+    for field in standard_fields:
         value = getattr(core, field, None)
         if value is None:
             value = metadata.custom.get(field)
         if value:
             present.append(field)
         else:
-            missing.append(field)
+            missing_standard.append(field)
+
+    for field in custom_fields:
+        value = getattr(core, field, None)
+        if value is None:
+            value = metadata.custom.get(field)
+        if value:
+            present.append(field)
+        else:
+            missing_custom.append(field)
+
+    missing = missing_standard + missing_custom
+    has_custom_missing = len(missing_custom) > 0
 
     if not missing:
         return MetricResult(
@@ -238,7 +290,8 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="pass",
             description="All required metadata fields are present",
-            evidence=f"Present: {', '.join(present)}"
+            evidence=f"Present: {', '.join(present)}",
+            is_custom=False
         )
     if present:
         return MetricResult(
@@ -249,9 +302,11 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             description="Some required metadata fields are missing",
             evidence=f"Present: {', '.join(present)} | "
                 f"Missing: {', '.join(missing)}",
-            recommendation=f"Add missing metadata fields: "
-                f"{', '.join(missing)}. "
-                f"This profile requires: {', '.join(all_required)}"
+            recommendation=f"Add missing fields: {', '.join(missing)}."
+                + (f" Note: {', '.join(missing_custom)} are domain-specific "
+                   f"fields that may not be exposed by the repository API."
+                   if has_custom_missing else ""),
+            is_custom=has_custom_missing
         )
     return MetricResult(
         metric_id="F2",
@@ -260,8 +315,8 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         status="fail",
         description="All required metadata fields are missing",
         evidence=f"Missing: {', '.join(missing)}",
-        recommendation=f"No required fields found. "
-            f"This profile requires: {', '.join(all_required)}"
+        recommendation=f"Add required fields: {', '.join(all_required)}",
+        is_custom=False
     )
 
 
@@ -883,7 +938,8 @@ def run_assessment(metadata: NormalizedMetadata,
                    profile_name: str = "generic") -> AssessmentReport:
     profile = load_profile(profile_name)
 
-    results = [
+    # standard FAIR metric checks
+    standard_results = [
         check_f1(metadata, profile),
         check_f2(metadata, profile),
         check_f3(metadata, profile),
@@ -901,10 +957,15 @@ def run_assessment(metadata: NormalizedMetadata,
         check_r1_3(metadata, profile),
     ]
 
-    f_score = calculate_score(results, "F")
-    a_score = calculate_score(results, "A")
-    i_score = calculate_score(results, "I")
-    r_score = calculate_score(results, "R")
+    # domain-specific custom field checks
+    custom_results = check_custom_metadata(metadata, profile)
+
+    results = standard_results + custom_results
+
+    f_score = calculate_score(standard_results, "F")
+    a_score = calculate_score(standard_results, "A")
+    i_score = calculate_score(standard_results, "I")
+    r_score = calculate_score(standard_results, "R")
     overall = round((f_score + a_score + i_score + r_score) / 4, 1)
     maturity, maturity_desc = get_maturity(overall)
 
