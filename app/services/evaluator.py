@@ -88,21 +88,30 @@ def detect_identifier_type(identifier: str) -> str:
 
 def check_vocabulary(metadata: NormalizedMetadata,
                      vocab_config: dict) -> bool:
-    """Check if metadata references a specific vocabulary."""
     keywords = [k.lower() for k in vocab_config.get("keywords", [])]
     vocab_name = vocab_config.get("name", "").lower()
 
-    # search in all metadata fields
     search_text = (
         str(metadata.core.dict()).lower() +
         str(metadata.custom).lower()
     )
 
-    if vocab_name and vocab_name in search_text:
-        return True
-    for kw in keywords:
-        if kw in search_text:
+    # check vocab name and common abbreviations
+    name_variants = [vocab_name]
+    # add abbreviation (first letters of each word)
+    abbrev = "".join(w[0] for w in vocab_name.split()
+                     if w).lower()
+    if len(abbrev) >= 2:
+        name_variants.append(abbrev)
+
+    for variant in name_variants:
+        if variant and variant in search_text:
             return True
+
+    for kw in keywords:
+        if kw and kw in search_text:
+            return True
+
     return False
 
 # ─── F Metrics ────────────────────────────────────────────────
@@ -635,8 +644,28 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
     license_lower = license_val.lower()
 
+    # expanded matching — check common license URL patterns
+    license_aliases = {
+        "cc-by": ["cc-by", "creativecommons.org/licenses/by",
+                  "cc by", "attribution"],
+        "cc0": ["cc0", "creativecommons.org/publicdomain/zero",
+                "public domain", "cc zero"],
+        "cc-by-sa": ["cc-by-sa", "creativecommons.org/licenses/by-sa"],
+        "cc-by-nc": ["cc-by-nc", "creativecommons.org/licenses/by-nc"],
+        "mit": ["mit license", "opensource.org/licenses/mit"],
+        "apache": ["apache", "opensource.org/licenses/apache"],
+        "gpl": ["gpl", "gnu general public"],
+        "bsd": ["bsd", "opensource.org/licenses/bsd"],
+    }
+
+    def matches_license(accepted_name: str,
+                        license_text: str) -> bool:
+        name = accepted_name.lower()
+        aliases = license_aliases.get(name, [name])
+        return any(alias in license_text for alias in aliases)
+
     # check required license
-    if required and required.lower() not in license_lower:
+    if required and not matches_license(required, license_lower):
         return MetricResult(
             metric_id="R1.1",
             principle="R",
@@ -644,12 +673,21 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             status="partial",
             description="License found but does not match required license",
             evidence=f"Current license: {license_val}",
-            recommendation=f"License '{license_val}' found but this profile "
+            recommendation=f"License detected but this profile "
                 f"requires: {required}"
         )
 
     # check accepted licenses list
-    if accepted and not any(a in license_lower for a in accepted):
+    if accepted:
+        if any(matches_license(a, license_lower) for a in accepted):
+            return MetricResult(
+                metric_id="R1.1",
+                principle="R",
+                priority="essential",
+                status="pass",
+                description="Dataset has a valid machine-readable license",
+                evidence=f"License: {license_val}"
+            )
         return MetricResult(
             metric_id="R1.1",
             principle="R",
@@ -657,7 +695,7 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             status="partial",
             description="License found but not in accepted list",
             evidence=f"Current license: {license_val}",
-            recommendation=f"License '{license_val}' not in accepted list. "
+            recommendation=f"License not in accepted list. "
                 f"Accepted: {', '.join(profile.accepted_licenses)}"
         )
 
@@ -666,7 +704,7 @@ def check_r1_1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         principle="R",
         priority="essential",
         status="pass",
-        description="Dataset has a valid machine-readable license",
+        description="Dataset has a machine-readable license",
         evidence=f"License: {license_val}"
     )
 

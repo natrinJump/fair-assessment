@@ -218,10 +218,19 @@
                 domain-specific metadata.
             </div>
             <div id="metadata-list"></div>
-            <button type="button" class="add-link"
-                onclick="openModal('metadata')">
-                + Add metadata field
-            </button>
+            <div style="background:#fff8e1;border:1px solid #ffe082;
+    border-radius:6px;padding:0.6rem 0.75rem;
+    font-size:0.78rem;color:#795548;margin-bottom:0.5rem">
+    ℹ️ Custom fields  
+    are checked against repository metadata. Many repositories do 
+    not expose domain-specific fields through their APIs — a fail 
+    here may reflect a repository limitation rather than a 
+    dataset quality issue.
+</div>
+<button type="button" class="add-link"
+    onclick="openModal('metadata')">
+    + Add metadata field
+</button>
         </div>
     </div>
 
@@ -327,10 +336,19 @@
                 The system will search for these keywords in metadata fields.
             </div>
             <div id="vocab-list"></div>
-            <button type="button" class="add-link"
-                onclick="openModal('vocabulary')">
-                + Add vocabulary
-            </button>
+            <div style="background:#fff8e1;border:1px solid #ffe082;
+    border-radius:6px;padding:0.6rem 0.75rem;
+    font-size:0.78rem;color:#795548;margin-bottom:0.5rem">
+    ℹ️ Vocabulary detection uses keyword matching against 
+    available metadata fields. If a repository does not 
+    expose vocabulary references in their API response, 
+    this check may fail even if the dataset uses the 
+    correct vocabulary.
+</div>
+<button type="button" class="add-link"
+    onclick="openModal('vocabulary')">
+    + Add vocabulary
+</button>
         </div>
     </div>
 
@@ -729,9 +747,15 @@ function saveModalItem() {
         if (!name) { alert('Please enter a vocabulary name'); return; }
         const kws = document.getElementById('modal-vocab-keywords')
             .value.split(',').map(k => k.trim()).filter(Boolean);
+        if (kws.length === 0) {
+            alert('Please add at least one keyword — this is how ' +
+                'the system detects the vocabulary in metadata.');
+            return;
+        }
         const desc = document.getElementById('modal-vocab-desc')
             .value.trim();
-        customVocabularies.push({ name, keywords: kws, description: desc });
+        customVocabularies.push({ name, keywords: kws,
+            description: desc });
         renderVocabList();
     } else if (currentModalType === 'identifier') {
         const name = document.getElementById('modal-name')
@@ -741,14 +765,33 @@ function saveModalItem() {
             .value.trim().toLowerCase();
         const desc = document.getElementById('modal-desc').value.trim();
         if (!name || !value) {
-            alert('Please enter a name and match value'); return;
+            alert('Please enter both a name and a match value');
+            return;
         }
-        // add to custom identifiers for pattern matching
         customIdentifiers.push(
-            { name, match_type: matchType, value, description: desc });
-        // also add to display list
-        if (!allIdentifiers.includes(name)) allIdentifiers.push(name);
-        if (!activeIdentifiers.includes(name)) activeIdentifiers.push(name);
+            { name, match_type: matchType,
+              value, description: desc });
+        if (!allIdentifiers.includes(name))
+            allIdentifiers.push(name);
+        if (!activeIdentifiers.includes(name))
+            activeIdentifiers.push(name);
+        renderAll();
+    } else if (currentModalType === 'metadata') {
+        const name = document.getElementById('modal-name')
+            .value.trim().toLowerCase();
+        if (!name) { alert('Please enter a field name'); return; }
+        // warn about detection limitations
+        const proceed = confirm(
+            'Adding custom field "' + name + '".\n\n' +
+            'Note: This field will be searched in repository ' +
+            'metadata. If the repository does not expose this ' +
+            'field through its API, it will show as missing even ' +
+            'if the dataset contains this information.\n\n' +
+            'Proceed?'
+        );
+        if (!proceed) return;
+        if (!allMetadata.includes(name)) allMetadata.push(name);
+        if (!activeMetadata.includes(name)) activeMetadata.push(name);
         renderAll();
     } else {
         const name = document.getElementById('modal-name')
@@ -756,19 +799,19 @@ function saveModalItem() {
         if (!name) { alert('Please enter a name'); return; }
         const allMap = {
             format: allFormats,
-            metadata: allMetadata,
             license: allLicenses,
             provenance: allProvenance,
         };
         const activeMap = {
             format: activeFormats,
-            metadata: activeMetadata,
             license: activeLicenses,
             provenance: activeProvenance,
         };
-        if (!allMap[currentModalType].includes(name))
+        if (allMap[currentModalType] &&
+            !allMap[currentModalType].includes(name))
             allMap[currentModalType].push(name);
-        if (!activeMap[currentModalType].includes(name))
+        if (activeMap[currentModalType] &&
+            !activeMap[currentModalType].includes(name))
             activeMap[currentModalType].push(name);
         renderAll();
     }
