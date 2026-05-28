@@ -15,6 +15,183 @@ from app.services.history_service import (
     get_assessment_by_id, delete_assessment
 )
 
+def generate_turtle(profile: dict) -> str:
+    name = profile["name"]
+    domain = profile["domain"]
+    base_uri = f"https://w3id.org/fair/fip/example/{domain}"
+    profile_uri = f"{base_uri}/profile"
+
+    lines = []
+
+    # prefixes
+    lines.append("@prefix fip: <https://w3id.org/fair/fip/terms/> .")
+    lines.append("@prefix dcterms: <http://purl.org/dc/terms/> .")
+    lines.append("@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .")
+    lines.append("@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .")
+    lines.append("@prefix fair: <https://w3id.org/fair/principles/terms/> .")
+    lines.append("")
+
+    # profile declaration
+    lines.append(f"<{profile_uri}>")
+    lines.append(f"    a fip:FAIR-Enabling-Resource ;")
+    lines.append(f"    dcterms:title \"{name}\" ;")
+    lines.append(f"    dcterms:description \"FAIR Implementation Profile "
+                 f"for {domain} domain\" ;")
+    lines.append(f"    dcterms:subject \"{domain}\" ;")
+
+    # add declarations
+    declarations = []
+
+    # F1 — identifiers
+    for pid in profile.get("accepted_identifiers", []):
+        declarations.append(f"{base_uri}#f1-{pid}")
+    for c in profile.get("custom_identifiers", []):
+        declarations.append(f"{base_uri}#f1-custom-{c.get('name','').replace(' ','-')}")
+
+    # F2 — metadata fields
+    for field in profile.get("required_metadata_fields", []):
+        declarations.append(f"{base_uri}#f2-{field}")
+    for field in profile.get("custom_metadata_fields", []):
+        declarations.append(f"{base_uri}#f2-custom-{field}")
+
+    # I1 — formats
+    for fmt in profile.get("accepted_formats", []):
+        declarations.append(f"{base_uri}#i1-{fmt.replace('-','_')}")
+
+    # I2 — vocabularies
+    if profile.get("required_vocabulary"):
+        declarations.append(f"{base_uri}#i2-vocab")
+    for v in profile.get("custom_vocabularies", []):
+        declarations.append(
+            f"{base_uri}#i2-custom-{v.get('name','').replace(' ','-')}")
+
+    # R1.1 — licenses
+    for lic in profile.get("accepted_licenses", []):
+        declarations.append(f"{base_uri}#r1-license-{lic.replace('-','_')}")
+
+    for d in declarations:
+        lines.append(f"    fip:declares-current-use-of <{d}> ;")
+
+    lines[-1] = lines[-1].rstrip(" ;") + " ."
+    lines.append("")
+
+    # F1 identifier declarations
+    lines.append(f"# F1 — Identifier")
+    for pid in profile.get("accepted_identifiers", []):
+        uri = f"{base_uri}#f1-{pid}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"F1\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Accepted persistent identifier: {pid}\" ;")
+        lines.append(f"    rdfs:label \"{pid.upper()} identifier\" .")
+        lines.append("")
+
+    for c in profile.get("custom_identifiers", []):
+        cname = c.get("name", "")
+        cval = c.get("value", "")
+        ctype = c.get("match_type", "contains")
+        uri = f"{base_uri}#f1-custom-{cname.replace(' ','-')}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"F1\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Custom identifier: {cname} "
+                     f"({ctype}: {cval})\" ;")
+        lines.append(f"    rdfs:label \"{cname} (custom)\" .")
+        lines.append("")
+
+    # F2 metadata fields
+    lines.append(f"# F2 — Metadata Fields")
+    for field in (profile.get("required_metadata_fields", []) +
+                  profile.get("custom_metadata_fields", [])):
+        is_custom = field in profile.get("custom_metadata_fields", [])
+        uri = f"{base_uri}#f2-{'custom-' if is_custom else ''}{field}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"F2\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Required metadata field: {field}"
+                     f"{'(domain-specific)' if is_custom else ''}\" ;")
+        lines.append(f"    rdfs:label \"{field}\" .")
+        lines.append("")
+
+    # I1 formats
+    lines.append(f"# I1 — Formats")
+    for fmt in profile.get("accepted_formats", []):
+        uri = f"{base_uri}#i1-{fmt.replace('-','_')}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"I1\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Accepted file format: {fmt}\" ;")
+        lines.append(f"    rdfs:label \"{fmt}\" .")
+        lines.append("")
+
+    # I2 vocabularies
+    lines.append(f"# I2 — Vocabularies")
+    if profile.get("required_vocabulary"):
+        vocab = profile["required_vocabulary"]
+        uri = f"{base_uri}#i2-vocab"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"I2\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Required vocabulary: {vocab}\" ;")
+        lines.append(f"    rdfs:label \"{vocab}\" .")
+        lines.append("")
+
+    for v in profile.get("custom_vocabularies", []):
+        vname = v.get("name", "")
+        vkws = ", ".join(v.get("keywords", []))
+        uri = f"{base_uri}#i2-custom-{vname.replace(' ','-')}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"I2\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Custom vocabulary: {vname}. "
+                     f"Keywords: {vkws}\" ;")
+        lines.append(f"    rdfs:label \"{vname} (custom)\" .")
+        lines.append("")
+
+    # R1.1 licenses
+    lines.append(f"# R1.1 — Licenses")
+    for lic in profile.get("accepted_licenses", []):
+        uri = f"{base_uri}#r1-license-{lic.replace('-','_')}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"R1.1\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Accepted license: {lic}\" ;")
+        lines.append(f"    rdfs:label \"{lic}\" .")
+        lines.append("")
+
+    # R1.2 provenance
+    lines.append(f"# R1.2 — Provenance")
+    for field in profile.get("required_provenance_fields", []):
+        uri = f"{base_uri}#r1-2-{field}"
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"R1.2\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Required provenance field: {field}\" ;")
+        lines.append(f"    rdfs:label \"{field}\" .")
+        lines.append("")
+
+    # R1.3 community standard
+    if profile.get("community_standard"):
+        std = profile["community_standard"]
+        uri = f"{base_uri}#r1-3-standard"
+        lines.append(f"# R1.3 — Community Standard")
+        lines.append(f"<{uri}>")
+        lines.append(f"    a fip:FIP-Declaration ;")
+        lines.append(f"    fip:principle-tag \"R1.3\" ;")
+        lines.append(f"    dcterms:description "
+                     f"\"Community standard: {std}\" ;")
+        lines.append(f"    rdfs:label \"{std}\" .")
+        lines.append("")
+
+    return "\n".join(lines)
 
 def normalize_by_source(raw: dict, doi: str):
     from app.services.normalizer import (
@@ -137,6 +314,23 @@ def restore_profile(name: str):
         "required_license": original.get("required_license"),
     })
     return updated
+
+@app.get("/profiles/{name}/export/turtle")
+def export_profile_turtle(name: str):
+    from fastapi.responses import Response
+    profile = get_profile_by_name(name)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    turtle = generate_turtle(profile)
+    return Response(
+        content=turtle,
+        media_type="text/turtle",
+        headers={
+            "Content-Disposition": 
+                f'attachment; filename="{name.replace(" ", "_")}_FIP.ttl"'
+        }
+    )
 
 @app.delete("/profiles/{name}")
 def remove_profile(name: str):

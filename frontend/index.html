@@ -100,6 +100,11 @@
                 onclick="continueToAssess()">Continue</button>
             <button type="button" class="btn btn-secondary"
                 onclick="editSelected()">Edit Profile</button>
+            <button type="button" class="btn btn-secondary"
+    onclick="exportTurtle()"
+    style="border-color:#0f9d58;color:#0f9d58">
+    Export as Turtle
+</button>
             <button type="button" class="btn btn-danger"
                 onclick="deleteSelected()"
                 id="delete-btn" style="display:none">Delete Profile</button>
@@ -232,6 +237,28 @@ function selectProfile(id) {
         isDefault ? 'none' : 'inline-block';
 
     localStorage.setItem('selectedProfile', JSON.stringify(selectedProfile));
+}
+
+async function exportTurtle() {
+    if (!selectedProfile) {
+        alert('Please select a profile first');
+        return;
+    }
+    try {
+        const response = await fetch(
+            API + '/profiles/' +
+            encodeURIComponent(selectedProfile.name) +
+            '/export/turtle'
+        );
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedProfile.name.replace(/ /g, '_') + '_FIP.ttl';
+        a.click();
+    } catch(e) {
+        alert('Export failed: ' + e.message);
+    }
 }
 
 function continueToAssess() {
