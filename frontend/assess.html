@@ -100,21 +100,7 @@
     Details:
 </h3>
 <div id="metric-results"></div>
-<div id="custom-section" style="display:none">
-    <hr class="section-divider">
-    <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.5rem">
-        Domain-Specific Metrics
-        <span style="font-size:0.75rem;color:#9c27b0;background:#f3e8fd;
-            padding:2px 8px;border-radius:12px;font-weight:600;
-            margin-left:8px">custom metrics</span>
-    </h3>
-    <p style="font-size:0.78rem;color:#888;margin-bottom:0.75rem">
-        These checks are based on domain-specific fields defined in your
-        profile. Results depend on whether the repository exposes these
-        fields through its API.
-    </p>
-    <div id="custom-results"></div>
-</div>
+
 
             <hr class="section-divider">
             <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
@@ -229,11 +215,8 @@ function renderReport(report) {
         desc.textContent = report.maturity_description;
     }
 
-    const standardResults = report.results.filter(r => !r.is_custom);
-    const customResults = report.results.filter(r => r.is_custom);
-
     document.getElementById('metric-results').innerHTML =
-        standardResults.map(r => `
+        report.results.map(r => `
             <div class="metric-result ${r.status}">
                 <div class="metric-header">
                     <span class="metric-id">${r.metric_id}</span>
@@ -251,36 +234,6 @@ function renderReport(report) {
             </div>
         `).join('');
 
-    const customSection = document.getElementById('custom-section');
-    if (customResults.length > 0) {
-        customSection.style.display = 'block';
-        document.getElementById('custom-results').innerHTML =
-            customResults.map(r => `
-                <div class="metric-result ${r.status}">
-                    <div class="metric-header">
-                        <span class="metric-id"
-                            style="font-size:0.75rem">${r.metric_id}</span>
-                        <span class="metric-desc">${r.description}</span>
-                        <span class="badge ${r.status}">${r.status}</span>
-                        <span style="font-size:0.7rem;color:#9c27b0;
-                            background:#f3e8fd;padding:2px 8px;
-                            border-radius:12px;font-weight:600">
-                            custom metric
-                        </span>
-                    </div>
-                    ${r.evidence
-                        ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
-                        : ''}
-                    ${r.recommendation
-                        ? `<div class="metric-recommendation">
-                            → ${r.recommendation}</div>`
-                        : ''}
-                </div>
-            `).join('');
-    } else {
-        customSection.style.display = 'none';
-    }
-
     const recs = report.results.filter(r => r.recommendation);
     const recContainer = document.getElementById('recommendations');
     if (recs.length === 0) {
@@ -291,11 +244,8 @@ function renderReport(report) {
         recContainer.innerHTML = recs.map(r =>
             `<div style="font-size:0.875rem;margin-bottom:0.5rem;
                 padding:0.5rem;background:#fafafa;border-radius:4px;
-                border-left:3px solid ${r.is_custom ? '#9c27b0' : '#db4437'}">
+                border-left:3px solid #db4437">
                 <strong>${r.metric_id}:</strong> ${r.recommendation}
-                ${r.is_custom
-                    ? '<em style="color:#9c27b0;font-size:0.8rem"> (custom metric)</em>'
-                    : ''}
             </div>`
         ).join('');
     }

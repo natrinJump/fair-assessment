@@ -957,15 +957,12 @@ def run_assessment(metadata: NormalizedMetadata,
         check_r1_3(metadata, profile),
     ]
 
-    # domain-specific custom field checks
-    custom_results = check_custom_metadata(metadata, profile)
+    results = standard_results
 
-    results = standard_results + custom_results
-
-    f_score = calculate_score(standard_results, "F")
-    a_score = calculate_score(standard_results, "A")
-    i_score = calculate_score(standard_results, "I")
-    r_score = calculate_score(standard_results, "R")
+    f_score = calculate_score(results, "F")
+    a_score = calculate_score(results, "A")
+    i_score = calculate_score(results, "I")
+    r_score = calculate_score(results, "R")
     overall = round((f_score + a_score + i_score + r_score) / 4, 1)
     maturity, maturity_desc = get_maturity(overall)
 

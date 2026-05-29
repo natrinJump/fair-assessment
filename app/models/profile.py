@@ -56,7 +56,6 @@ class MetricResult(BaseModel):
     description: str
     evidence: Optional[str] = None
     recommendation: Optional[str] = None
-    is_custom: bool = False
 
 class AssessmentReport(BaseModel):
     doi: str
