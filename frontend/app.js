@@ -1,4 +1,4 @@
-const API = 'https://fair-assessment.onrender.com/';
+const API = 'https://fair-assessment-api.onrender.com';
 
 async function apiFetch(path, options = {}) {
     const res = await fetch(API + path, {
