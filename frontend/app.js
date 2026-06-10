@@ -1,5 +1,7 @@
-const API = 'https://fair-assessment.onrender.com';
-/*const API = 'http://localhost:8000';*/
+const API = window.location.hostname === 'localhost' || 
+            window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : 'https://fair-assessment-api.onrender.com';
 
 async function apiFetch(path, options = {}) {
     const res = await fetch(API + path, {
