@@ -6,10 +6,16 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
-        .compare-grid {
-            display: grid;
-            gap: 1rem;
+        .tab-btn {
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            border: 1px solid #1a73e8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
         }
+        .tab-btn.active { background: #1a73e8; color: white; }
+        .tab-btn.inactive { background: white; color: #1a73e8; }
         .profile-check {
             display: flex;
             align-items: center;
@@ -19,8 +25,8 @@
             border-radius: 6px;
             font-size: 0.875rem;
             background: white;
+            cursor: pointer;
         }
-        .profile-check input { width: auto; margin: 0; }
         .profile-check.selected {
             border-color: #1a73e8;
             background: #e8f0fe;
@@ -44,11 +50,7 @@
             vertical-align: middle;
         }
         .compare-table tr:last-child td { border-bottom: none; }
-        .score-cell {
-            font-weight: 700;
-            font-size: 1rem;
-            color: #1a73e8;
-        }
+        .score-cell { font-weight: 700; font-size: 1rem; color: #1a73e8; }
         .status-pass { color: #0f9d58; font-weight: 600; }
         .status-partial { color: #f4b400; font-weight: 600; }
         .status-fail { color: #db4437; font-weight: 600; }
@@ -62,11 +64,11 @@
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
     <a href="compare.html"
-        style="font-weight:600;border-bottom:2px solid white;
-        padding-bottom:2px">Compare</a>
+        style="font-weight:600;border-bottom:2px solid white;padding-bottom:2px">
+        Compare
+    </a>
     <a href="history.html">History</a>
     <a href="about.html">About</a>
-
 </nav>
 
 <div class="container">
@@ -74,21 +76,46 @@
         <h2>Profile Comparison</h2>
         <p style="font-size:0.875rem;color:#666;margin-bottom:1rem">
             Run the same dataset against multiple profiles and compare
-            scores side by side. This shows how FAIRness scores differ
-            depending on community-specific requirements.
+            scores side by side. Each run is saved to your local history.
         </p>
 
         <div style="margin-bottom:1rem">
-            <label style="font-size:0.875rem;font-weight:600;
-                display:block;margin-bottom:0.5rem">
-                Dataset identifier:
-            </label>
-            <div style="display:flex;gap:0.75rem">
+            <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem">
+                <button type="button" class="tab-btn active" id="tab-doi-cmp"
+                    onclick="switchComparTab('doi')">
+                    Enter DOI / URL
+                </button>
+                <button type="button" class="tab-btn inactive" id="tab-file-cmp"
+                    onclick="switchComparTab('file')">
+                    Upload Metadata File
+                </button>
+            </div>
+
+            <div id="panel-doi-cmp">
+                <label style="font-size:0.875rem;font-weight:600;
+                    display:block;margin-bottom:0.5rem">
+                    Dataset identifier:
+                </label>
                 <input type="text" id="compare-doi"
                     list="doi-suggestions"
                     placeholder="Enter DOI, Handle, or URL"
-                    style="flex:1">
+                    style="width:100%">
                 <datalist id="doi-suggestions"></datalist>
+            </div>
+
+            <div id="panel-file-cmp" style="display:none">
+                <label style="font-size:0.875rem;font-weight:600;
+                    display:block;margin-bottom:0.5rem">
+                    Upload metadata file:
+                </label>
+                <input type="file" id="compare-file-input"
+                    accept=".json,.jsonld,.xml,.rdf,.ttl"
+                    style="width:100%;padding:0.5rem;border:1px solid #ddd;
+                    border-radius:6px;font-size:0.875rem">
+                <div style="font-size:0.78rem;color:#888;margin-top:0.35rem">
+                    Accepted: DataCite JSON (.json), JSON-LD (.jsonld),
+                    XML (.xml), RDF (.rdf), Turtle (.ttl)
+                </div>
             </div>
         </div>
 
@@ -104,9 +131,7 @@
         </div>
 
         <button type="button" class="btn btn-primary"
-            onclick="runComparison()">
-            Run Comparison
-        </button>
+            onclick="runComparison()">Run Comparison</button>
         <div id="compare-message"></div>
     </div>
 
@@ -114,8 +139,7 @@
         <div class="card">
             <h2>Comparison Results</h2>
             <p id="compare-doi-label"
-                style="font-size:0.875rem;color:#666;margin-bottom:1rem">
-            </p>
+                style="font-size:0.875rem;color:#666;margin-bottom:1rem"></p>
 
             <div style="margin-bottom:1.5rem">
                 <canvas id="compare-chart" height="100"></canvas>
@@ -126,57 +150,218 @@
             </h3>
             <div id="compare-summary"></div>
 
-            <h3 style="font-size:0.9rem;font-weight:600;
-                margin:1rem 0 0.75rem">
+            <h3 style="font-size:0.9rem;font-weight:600;margin:1rem 0 0.75rem">
                 Metric-by-Metric Comparison
             </h3>
             <div id="compare-table"></div>
+
+            <p style="font-size:0.8rem;color:#888;margin-top:1rem">
+                All comparison runs have been saved to your
+                <a href="history.html">History</a> page.
+            </p>
         </div>
     </div>
 </div>
 
 <script src="app.js"></script>
 <script>
-let profiles = [];
-let selectedProfiles = [];
-let comparisonResults = [];
-let compareChart = null;
+var profiles = [];
+var selectedProfiles = [];
+var comparisonResults = [];
+var compareChart = null;
+
+function switchComparTab(tab) {
+    var isDoi = tab === 'doi';
+    document.getElementById('panel-doi-cmp').style.display = isDoi ? 'block' : 'none';
+    document.getElementById('panel-file-cmp').style.display = isDoi ? 'none' : 'block';
+    document.getElementById('tab-doi-cmp').className = 'tab-btn ' + (isDoi ? 'active' : 'inactive');
+    document.getElementById('tab-file-cmp').className = 'tab-btn ' + (isDoi ? 'inactive' : 'active');
+}
+
+function parseXML(xmlText) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(xmlText, 'text/xml');
+    function getText(tag) {
+        var el = doc.getElementsByTagName(tag)[0];
+        return el ? el.textContent.trim() : null;
+    }
+    var identifier = getText('identifier') || getText('doi') || 'unknown';
+    var license = null;
+    var rightsEl = doc.getElementsByTagName('rights')[0];
+    if (rightsEl) {
+        license = rightsEl.getAttribute('rightsURI') || rightsEl.textContent.trim();
+    }
+    var formats = [];
+    var formatEls = doc.getElementsByTagName('format');
+    for (var i = 0; i < formatEls.length; i++) {
+        formats.push(formatEls[i].textContent.trim());
+    }
+    return {
+        identifier: identifier,
+        title: getText('title'),
+        description: getText('description'),
+        creator: getText('creatorName') || getText('creator'),
+        license: license,
+        formats: formats,
+        provenance_date: getText('publicationYear') || getText('date'),
+        access_url: identifier.startsWith('10.') ? 'https://doi.org/' + identifier : null
+    };
+}
+
+function parseTurtle(text) {
+    var result = {
+        identifier: null, title: null, description: null,
+        creator: null, license: null, formats: [],
+        provenance_date: null, access_url: null
+    };
+
+    function getLiteral(predicate) {
+        var patterns = [
+            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"([^"]+)"(?:@\\w+)?', 'i'),
+            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"""([\\s\\S]+?)"""', 'i'),
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var match = text.match(patterns[i]);
+            if (match) return match[1].trim();
+        }
+        return null;
+    }
+
+    function getURI(predicate) {
+        var match = text.match(
+            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+<([^>]+)>', 'i')
+        );
+        return match ? match[1].trim() : null;
+    }
+
+    var lines = text.split('\n');
+    var subjectURI = null;
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.startsWith('@prefix') || line.startsWith('#') ||
+            line.startsWith('PREFIX') || line === '') continue;
+        var uriMatch = line.match(/^<(https?:\/\/[^>]+)>/);
+        if (uriMatch) { subjectURI = uriMatch[1]; break; }
+    }
+
+    result.title = getLiteral('dcterms:title') || getLiteral('dc:title') ||
+                   getLiteral('schema:name') || getLiteral('rdfs:label');
+    result.description = getLiteral('dcterms:description') ||
+                         getLiteral('dc:description') || getLiteral('schema:description');
+
+    var foafMatch = text.match(/foaf:name\s+"([^"]+)"/i);
+    if (foafMatch) {
+        result.creator = foafMatch[1];
+    } else {
+        result.creator = getLiteral('dcterms:creator') || getLiteral('dc:creator') ||
+                         getLiteral('schema:author') || getLiteral('dcterms:publisher');
+    }
+
+    result.license = getURI('dcterms:license') || getURI('dc:rights') ||
+                     getLiteral('dcterms:license') || getLiteral('dc:rights');
+    result.identifier = getLiteral('dcterms:identifier') || getLiteral('dc:identifier') ||
+                        getURI('owl:sameAs') || subjectURI;
+    result.provenance_date = getLiteral('dcterms:issued') || getLiteral('dcterms:created') ||
+                             getLiteral('dc:date');
+    result.access_url = getURI('dcat:landingPage') || subjectURI;
+
+    var formatMatches = text.match(/dcat:mediaType\s+"([^"]+)"/gi);
+    if (formatMatches) {
+        result.formats = formatMatches.map(function(m) {
+            var match = m.match(/dcat:mediaType\s+"([^"]+)"/i);
+            return match ? match[1] : '';
+        }).filter(Boolean);
+    }
+
+    if (!result.identifier) result.identifier = 'uploaded-turtle-file';
+    return result;
+}
+
+function parseJSON(jsonData) {
+    if (jsonData.data && jsonData.data.attributes) {
+        var attrs = jsonData.data.attributes;
+        var titles = attrs.titles || [];
+        var creators = attrs.creators || [];
+        var rights = attrs.rightsList || [];
+        var descs = attrs.descriptions || [];
+        return {
+            identifier: attrs.doi || 'unknown',
+            title: titles[0] ? titles[0].title : null,
+            description: descs[0] ? descs[0].description : null,
+            creator: creators[0] ? creators[0].name : null,
+            license: rights[0] ? (rights[0].rightsUri || rights[0].rightsURI) : null,
+            formats: attrs.formats || [],
+            provenance_date: attrs.published || null,
+            access_url: 'https://doi.org/' + (attrs.doi || '')
+        };
+    }
+    if (jsonData['@type'] || jsonData['@context']) {
+        var creators2 = jsonData.creator || jsonData.author || [];
+        if (!Array.isArray(creators2)) creators2 = [creators2];
+        var lic = jsonData.license;
+        if (typeof lic === 'object' && lic !== null) lic = lic['@id'] || lic.url;
+        var dist = jsonData.distribution || [];
+        if (!Array.isArray(dist)) dist = [dist];
+        var fmts = dist.map(function(d) {
+            return d.encodingFormat || d.fileFormat || '';
+        }).filter(Boolean);
+        return {
+            identifier: jsonData.identifier || jsonData['@id'] || 'unknown',
+            title: jsonData.name || jsonData.headline || null,
+            description: jsonData.description || null,
+            creator: creators2[0] ? (creators2[0].name || creators2[0]) : null,
+            license: lic || null,
+            formats: fmts,
+            provenance_date: jsonData.datePublished || jsonData.dateCreated || null,
+            access_url: jsonData.url || jsonData['@id'] || null
+        };
+    }
+    return {
+        identifier: jsonData.identifier || jsonData.doi || jsonData.id || 'unknown',
+        title: jsonData.title || jsonData.name || null,
+        description: jsonData.description || jsonData.abstract || null,
+        creator: jsonData.creator || jsonData.author || null,
+        license: jsonData.license || jsonData.rights || null,
+        formats: jsonData.formats ? jsonData.formats : (jsonData.format ? [jsonData.format] : []),
+        provenance_date: jsonData.publicationYear || jsonData.datePublished || null,
+        access_url: jsonData.url || null
+    };
+}
 
 async function loadProfiles() {
     try {
         profiles = await apiFetch('/profiles');
-        const checklist = document.getElementById('profile-checklist');
-        checklist.innerHTML = profiles.map(p => `
-            <div class="profile-check" id="check-${p.id}"
-                onclick="toggleProfile(${p.id})"
-                style="cursor:pointer">
-                <div>
-                    <div style="font-weight:500">${p.name}</div>
-                    <div style="font-size:0.75rem;color:#666">${p.domain}</div>
-                </div>
-            </div>
-        `).join('');
+        var checklist = document.getElementById('profile-checklist');
+        checklist.innerHTML = profiles.map(function(p) {
+            return '<div class="profile-check" id="check-' + p.id + '" onclick="toggleProfile(' + p.id + ')">' +
+                '<div><div style="font-weight:500">' + p.name + '</div>' +
+                '<div style="font-size:0.75rem;color:#666">' + p.domain + '</div></div>' +
+                '</div>';
+        }).join('');
     } catch(e) {
         document.getElementById('profile-checklist').innerHTML =
             '<div class="error">Could not load profiles</div>';
     }
 }
 
-async function loadPreviousDOIs() {
+function loadPreviousDOIs() {
     try {
-        const history = await apiFetch('/history');
-        const dois = [...new Set(history.map(h => h.doi))];
-        const datalist = document.getElementById('doi-suggestions');
-        datalist.innerHTML = dois.map(doi =>
-            `<option value="${doi}">`
-        ).join('');
+        var history = getLocalHistory();
+        var dois = [];
+        history.forEach(function(h) {
+            if (dois.indexOf(h.doi) === -1) dois.push(h.doi);
+        });
+        var datalist = document.getElementById('doi-suggestions');
+        datalist.innerHTML = dois.map(function(doi) {
+            return '<option value="' + doi + '">';
+        }).join('');
     } catch(e) {}
 }
 
 function toggleProfile(id) {
-    const card = document.getElementById('check-' + id);
-    if (selectedProfiles.includes(id)) {
-        selectedProfiles = selectedProfiles.filter(p => p !== id);
+    var card = document.getElementById('check-' + id);
+    if (selectedProfiles.indexOf(id) !== -1) {
+        selectedProfiles = selectedProfiles.filter(function(p) { return p !== id; });
         card.classList.remove('selected');
     } else {
         selectedProfiles.push(id);
@@ -185,14 +370,48 @@ function toggleProfile(id) {
 }
 
 async function runComparison() {
-    const doi = document.getElementById('compare-doi').value.trim();
-    if (!doi) {
-        showError('compare-message', 'Please enter a DOI or URL');
-        return;
+    var isFile = document.getElementById('panel-file-cmp').style.display !== 'none';
+    var doi = document.getElementById('compare-doi').value.trim();
+    var parsedFile = null;
+
+    if (isFile) {
+        var fileInput = document.getElementById('compare-file-input');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showError('compare-message', 'Please select a file');
+            return;
+        }
+        var file = fileInput.files[0];
+        var filename = file.name.toLowerCase();
+        var ext = filename.substring(filename.lastIndexOf('.'));
+        var allowedExt = ['.json', '.jsonld', '.xml', '.rdf', '.ttl'];
+        if (allowedExt.indexOf(ext) === -1) {
+            showError('compare-message',
+                'Unsupported format "' + ext + '". Accepted: ' + allowedExt.join(', '));
+            return;
+        }
+        var text = await file.text();
+        if (ext === '.ttl') {
+            parsedFile = parseTurtle(text);
+        } else if (ext === '.xml' || ext === '.rdf') {
+            parsedFile = parseXML(text);
+        } else {
+            try {
+                parsedFile = parseJSON(JSON.parse(text));
+            } catch(e) {
+                showError('compare-message', 'Could not parse JSON file: ' + e.message);
+                return;
+            }
+        }
+        doi = parsedFile.identifier || file.name;
+    } else {
+        if (!doi) {
+            showError('compare-message', 'Please enter a DOI or URL');
+            return;
+        }
     }
+
     if (selectedProfiles.length < 2) {
-        showError('compare-message',
-            'Please select at least 2 profiles to compare');
+        showError('compare-message', 'Please select at least 2 profiles to compare');
         return;
     }
 
@@ -202,17 +421,34 @@ async function runComparison() {
 
     try {
         comparisonResults = [];
-        for (const profileId of selectedProfiles) {
-            const profile = profiles.find(p => p.id === profileId);
+        for (var i = 0; i < selectedProfiles.length; i++) {
+            var profileId = selectedProfiles[i];
+            var profile = profiles.find(function(p) { return p.id === profileId; });
             if (!profile) continue;
 
-            const report = await apiFetch(
-                `/assess/${doi}?profile=${encodeURIComponent(profile.domain)}`
-            );
-            comparisonResults.push({
-                profile: profile,
-                report: report
-            });
+            var report;
+            if (isFile) {
+                var response = await fetch(
+                    API + '/assess/metadata?profile=' + encodeURIComponent(profile.domain),
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(parsedFile)
+                    }
+                );
+                if (!response.ok) {
+                    var err = await response.json().catch(function() { return {}; });
+                    throw new Error(err.detail || 'Assessment failed');
+                }
+                report = await response.json();
+            } else {
+                report = await apiFetch(
+                    '/assess/' + doi + '?profile=' + encodeURIComponent(profile.domain)
+                );
+            }
+
+            addToLocalHistory(report, profile);
+            comparisonResults.push({ profile: profile, report: report });
         }
 
         document.getElementById('compare-message').innerHTML = '';
@@ -224,163 +460,94 @@ async function runComparison() {
 
 function renderComparison(doi) {
     document.getElementById('compare-results').style.display = 'block';
-    document.getElementById('compare-doi-label').textContent =
-        'Dataset: ' + doi;
+    document.getElementById('compare-doi-label').textContent = 'Dataset: ' + doi;
 
-    const profileNames = comparisonResults.map(r => r.profile.name);
-    const overallScores = comparisonResults.map(r => r.report.overall_score);
-    const fScores = comparisonResults.map(r => r.report.f_score);
-    const aScores = comparisonResults.map(r => r.report.a_score);
-    const iScores = comparisonResults.map(r => r.report.i_score);
-    const rScores = comparisonResults.map(r => r.report.r_score);
+    var profileNames = comparisonResults.map(function(r) { return r.profile.name; });
+    var overallScores = comparisonResults.map(function(r) { return r.report.overall_score; });
+    var fScores = comparisonResults.map(function(r) { return r.report.f_score; });
+    var aScores = comparisonResults.map(function(r) { return r.report.a_score; });
+    var iScores = comparisonResults.map(function(r) { return r.report.i_score; });
+    var rScores = comparisonResults.map(function(r) { return r.report.r_score; });
 
-    // chart
     if (compareChart) compareChart.destroy();
-    const canvas = document.getElementById('compare-chart');
+    var canvas = document.getElementById('compare-chart');
     compareChart = new Chart(canvas, {
         type: 'bar',
         data: {
             labels: profileNames,
             datasets: [
-                {
-                    label: 'Overall',
-                    data: overallScores,
-                    backgroundColor: 'rgba(26,115,232,0.8)',
-                    borderColor: '#1a73e8',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Findable',
-                    data: fScores,
-                    backgroundColor: 'rgba(15,157,88,0.7)',
-                    borderColor: '#0f9d58',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Accessible',
-                    data: aScores,
-                    backgroundColor: 'rgba(244,180,0,0.7)',
-                    borderColor: '#f4b400',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Interoperable',
-                    data: iScores,
-                    backgroundColor: 'rgba(219,68,55,0.7)',
-                    borderColor: '#db4437',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Reusable',
-                    data: rScores,
-                    backgroundColor: 'rgba(156,39,176,0.7)',
-                    borderColor: '#9c27b0',
-                    borderWidth: 1
-                }
+                { label: 'Overall', data: overallScores, backgroundColor: 'rgba(26,115,232,0.8)', borderColor: '#1a73e8', borderWidth: 1 },
+                { label: 'Findable', data: fScores, backgroundColor: 'rgba(15,157,88,0.7)', borderColor: '#0f9d58', borderWidth: 1 },
+                { label: 'Accessible', data: aScores, backgroundColor: 'rgba(244,180,0,0.7)', borderColor: '#f4b400', borderWidth: 1 },
+                { label: 'Interoperable', data: iScores, backgroundColor: 'rgba(219,68,55,0.7)', borderColor: '#db4437', borderWidth: 1 },
+                { label: 'Reusable', data: rScores, backgroundColor: 'rgba(156,39,176,0.7)', borderColor: '#9c27b0', borderWidth: 1 }
             ]
         },
         options: {
             responsive: true,
             plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { font: { size: 11 }, boxWidth: 12 }
-                },
-                title: {
-                    display: true,
-                    text: 'Score Comparison Across Profiles',
-                    font: { size: 12 },
-                    color: '#444'
-                }
+                legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
+                title: { display: true, text: 'Score Comparison Across Profiles', font: { size: 12 }, color: '#444' }
             },
             scales: {
-                y: {
-                    min: 0, max: 100,
-                    ticks: {
-                        font: { size: 10 },
-                        callback: v => v + '%'
-                    }
-                },
+                y: { min: 0, max: 100, ticks: { font: { size: 10 }, callback: function(v) { return v + '%'; } } },
                 x: { ticks: { font: { size: 10 } } }
             }
         }
     });
 
-    // summary table
-    const maxOverall = Math.max(...overallScores);
-    const summaryHtml = `
-        <table class="compare-table" style="margin-bottom:1rem">
-            <tr>
-                <th>Profile</th>
-                <th>Overall</th>
-                <th>Findable</th>
-                <th>Accessible</th>
-                <th>Interoperable</th>
-                <th>Reusable</th>
-                <th>Maturity</th>
-            </tr>
-            ${comparisonResults.map(r => `
-                <tr ${r.report.overall_score === maxOverall
-                    ? 'class="best-score"' : ''}>
-                    <td><strong>${r.profile.name}</strong></td>
-                    <td class="score-cell">
-                        ${formatScore(r.report.overall_score)}
-                        ${r.report.overall_score === maxOverall
-                            ? ' ★' : ''}
-                    </td>
-                    <td>${formatScore(r.report.f_score)}</td>
-                    <td>${formatScore(r.report.a_score)}</td>
-                    <td>${formatScore(r.report.i_score)}</td>
-                    <td>${formatScore(r.report.r_score)}</td>
-                    <td style="font-size:0.8rem">
-                        ${r.report.maturity_level || '-'}
-                    </td>
-                </tr>
-            `).join('')}
-        </table>
-    `;
-    document.getElementById('compare-summary').innerHTML = summaryHtml;
-
-    // metric comparison table
-    const allMetricIds = [...new Set(
-        comparisonResults.flatMap(r =>
-            r.report.results
-                .filter(m => !m.is_custom)
-                .map(m => m.metric_id)
-        )
-    )];
-
-    const metricRows = allMetricIds.map(metricId => {
-        const cells = comparisonResults.map(r => {
-            const metric = r.report.results.find(
-                m => m.metric_id === metricId);
-            if (!metric) return '<td>-</td>';
-            const cls = 'status-' + metric.status;
-            return `<td class="${cls}">${metric.status.toUpperCase()}</td>`;
-        }).join('');
-
-        const firstMetric = comparisonResults[0].report.results.find(
-            m => m.metric_id === metricId);
-        const desc = firstMetric ? firstMetric.description : metricId;
-
-        return `<tr>
-            <td><strong>${metricId}</strong><br>
-                <span style="font-size:0.75rem;color:#666">${desc}</span>
-            </td>
-            ${cells}
-        </tr>`;
+    var maxOverall = Math.max.apply(null, overallScores);
+    var summaryRows = comparisonResults.map(function(r) {
+        var isBest = r.report.overall_score === maxOverall;
+        return '<tr' + (isBest ? ' class="best-score"' : '') + '>' +
+            '<td><strong>' + r.profile.name + '</strong></td>' +
+            '<td class="score-cell">' + formatScore(r.report.overall_score) + (isBest ? ' ★' : '') + '</td>' +
+            '<td>' + formatScore(r.report.f_score) + '</td>' +
+            '<td>' + formatScore(r.report.a_score) + '</td>' +
+            '<td>' + formatScore(r.report.i_score) + '</td>' +
+            '<td>' + formatScore(r.report.r_score) + '</td>' +
+            '<td style="font-size:0.8rem">' + (r.report.maturity_level || '-') + '</td>' +
+            '</tr>';
     }).join('');
 
-    document.getElementById('compare-table').innerHTML = `
-        <table class="compare-table">
-            <tr>
-                <th>Metric</th>
-                ${comparisonResults.map(r =>
-                    `<th>${r.profile.name}</th>`).join('')}
-            </tr>
-            ${metricRows}
-        </table>
-    `;
+    document.getElementById('compare-summary').innerHTML =
+        '<table class="compare-table" style="margin-bottom:1rem">' +
+        '<tr><th>Profile</th><th>Overall</th><th>Findable</th>' +
+        '<th>Accessible</th><th>Interoperable</th><th>Reusable</th><th>Maturity</th></tr>' +
+        summaryRows + '</table>';
+
+    var allMetricIds = [];
+    comparisonResults.forEach(function(r) {
+        r.report.results.forEach(function(m) {
+            if (allMetricIds.indexOf(m.metric_id) === -1) {
+                allMetricIds.push(m.metric_id);
+            }
+        });
+    });
+
+    var metricRows = allMetricIds.map(function(metricId) {
+        var cells = comparisonResults.map(function(r) {
+            var metric = r.report.results.find(function(m) { return m.metric_id === metricId; });
+            if (!metric) return '<td>-</td>';
+            return '<td class="status-' + metric.status + '">' + metric.status.toUpperCase() + '</td>';
+        }).join('');
+
+        var firstMetric = comparisonResults[0].report.results.find(
+            function(m) { return m.metric_id === metricId; });
+        var desc = firstMetric ? firstMetric.description : metricId;
+
+        return '<tr><td><strong>' + metricId + '</strong><br>' +
+            '<span style="font-size:0.75rem;color:#666">' + desc + '</span></td>' +
+            cells + '</tr>';
+    }).join('');
+
+    var headerCells = comparisonResults.map(function(r) {
+        return '<th>' + r.profile.name + '</th>';
+    }).join('');
+
+    document.getElementById('compare-table').innerHTML =
+        '<table class="compare-table"><tr><th>Metric</th>' +
+        headerCells + '</tr>' + metricRows + '</table>';
 }
 
 loadProfiles();
