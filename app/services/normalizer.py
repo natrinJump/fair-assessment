@@ -40,6 +40,47 @@ def normalize_datacite(raw: dict, doi: str) -> NormalizedMetadata:
         core=core
     )
 
+def _normalize_json_upload(data: dict, identifier: str,
+                           custom_fields: list) -> NormalizedMetadata:
+    title = data.get("title") or data.get("name")
+    description = data.get("description") or data.get("abstract")
+    creator = data.get("creator") or data.get("author")
+    if isinstance(creator, list):
+        creator = creator[0] if creator else None
+    if isinstance(creator, dict):
+        creator = creator.get("name") or creator.get("creatorName")
+    license_val = data.get("license") or data.get("rights")
+    if isinstance(license_val, dict):
+        license_val = license_val.get("url") or license_val.get("rightsUri")
+    formats = data.get("formats") or []
+    if isinstance(formats, str):
+        formats = [formats]
+    date = data.get("provenance_date") or data.get("publicationYear")
+    access_url = data.get("access_url") or data.get("url")
+
+    custom = {}
+    for field in custom_fields:
+        val = data.get(field)
+        if val:
+            custom[field] = str(val)
+
+    core = CoreMetadata(
+        identifier=str(identifier),
+        title=str(title) if title else None,
+        description=str(description) if description else None,
+        creator=str(creator) if creator else None,
+        license=str(license_val) if license_val else None,
+        formats=formats[:5],
+        access_url=str(access_url) if access_url else None,
+        provenance_date=str(date)[:4] if date else None,
+    )
+    return NormalizedMetadata(
+        source="upload",
+        raw_identifier=str(identifier),
+        core=core,
+        custom=custom
+    )
+
 def normalize_from_dict(data: dict,
                         profile_name: str = None) -> NormalizedMetadata:
     """
