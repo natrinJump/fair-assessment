@@ -1,9 +1,12 @@
-const API = window.location.hostname === 'localhost' ||
+/*const API = 'https://fair-assessment.onrender.com';*/
+/*const API = 'http://localhost:8000';*/
+
+
+const API = window.location.hostname === 'localhost' || 
             window.location.hostname === '127.0.0.1'
     ? 'http://localhost:8000'
-    : 'https://fair-assessment-api.onrender.com';
+    : 'https://fair-assessment-api.netlify.app';
 
-// ── Local History Storage ──────────────────────────────────
 
 function getLocalHistory() {
     try {
