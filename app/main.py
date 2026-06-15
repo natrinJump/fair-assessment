@@ -229,7 +229,13 @@ app = FastAPI(title="FAIR Assessment API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://fair-assessment-api.netlify.app",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "http://localhost:8000",
+        "null"
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
