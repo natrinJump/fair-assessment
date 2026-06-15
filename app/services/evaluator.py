@@ -47,6 +47,10 @@ def match_identifier(identifier: str, accepted: str,
         return True
     if accepted_lower in id_lower:
         return True
+    if "w3id.org" in id_lower:
+        return True
+    if accepted_lower == "url" and id_lower.startswith("http"):
+        return True
 
     for custom in custom_identifiers:
         match_type = custom.get("match_type", "contains")

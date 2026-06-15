@@ -82,17 +82,17 @@
             <div id="panel-file" style="display:none">
                 <div class="input-row">
                     <input type="file" id="file-input"
-                    accept=".json,.jsonld,.xml,.rdf,.ttl"
-                    style="flex:1;padding:0.5rem;border:1px solid #ddd;
-                    border-radius:6px;font-size:0.875rem">
+                        accept=".json,.jsonld,.xml,.rdf,.ttl"
+                        style="flex:1;padding:0.5rem;border:1px solid #ddd;
+                        border-radius:6px;font-size:0.875rem">
                     <select id="profile-select-file"></select>
                     <button type="button" class="btn btn-primary"
                         onclick="runFileAssessment()">Run Assessment</button>
                 </div>
                 <div style="font-size:0.78rem;color:#888;margin-top:0.35rem">
-                Accepted formats: DataCite JSON (.json), schema.org JSON-LD (.jsonld),
-                DataCite XML (.xml), RDF/XML (.rdf), RDF Turtle (.ttl).
-                Other file types are not supported.
+                    Accepted formats: DataCite JSON (.json), schema.org JSON-LD (.jsonld),
+                    DataCite XML (.xml), RDF/XML (.rdf), RDF Turtle (.ttl).
+                    Other file types are not supported.
                 </div>
             </div>
 
@@ -274,6 +274,108 @@ function parseXML(xmlText) {
     };
 }
 
+function parseTurtle(text) {
+    var result = {
+        identifier: null,
+        title: null,
+        description: null,
+        creator: null,
+        license: null,
+        formats: [],
+        provenance_date: null,
+        access_url: null
+    };
+
+    function getLiteral(predicate) {
+        var patterns = [
+            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"([^"]+)"(?:@\\w+)?', 'i'),
+            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"""([\\s\\S]+?)"""', 'i'),
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var match = text.match(patterns[i]);
+            if (match) return match[1].trim();
+        }
+        return null;
+    }
+
+    function getURI(predicate) {
+        var match = text.match(
+            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+<([^>]+)>', 'i')
+        );
+        return match ? match[1].trim() : null;
+    }
+
+    // find subject URI — skip prefixes and comments
+    var lines = text.split('\n');
+    var subjectURI = null;
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.startsWith('@prefix') || line.startsWith('#') ||
+            line.startsWith('PREFIX') || line === '') continue;
+        var uriMatch = line.match(/^<(https?:\/\/[^>]+)>/);
+        if (uriMatch) {
+            subjectURI = uriMatch[1];
+            break;
+        }
+    }
+
+    // title
+    result.title = getLiteral('dcterms:title') ||
+                   getLiteral('dc:title') ||
+                   getLiteral('schema:name') ||
+                   getLiteral('rdfs:label');
+
+    // description
+    result.description = getLiteral('dcterms:description') ||
+                         getLiteral('dc:description') ||
+                         getLiteral('schema:description');
+
+    // creator — try foaf:name in blank node first
+    var foafMatch = text.match(/foaf:name\s+"([^"]+)"/i);
+    if (foafMatch) {
+        result.creator = foafMatch[1];
+    } else {
+        result.creator = getLiteral('dcterms:creator') ||
+                         getLiteral('dc:creator') ||
+                         getLiteral('schema:author') ||
+                         getLiteral('dcterms:publisher');
+    }
+
+    // license
+    result.license = getURI('dcterms:license') ||
+                     getURI('dc:rights') ||
+                     getLiteral('dcterms:license') ||
+                     getLiteral('dc:rights');
+
+    // identifier — prefer w3id or persistent URI
+    result.identifier = getLiteral('dcterms:identifier') ||
+                        getLiteral('dc:identifier') ||
+                        getURI('owl:sameAs') ||
+                        subjectURI;
+
+    // date
+    result.provenance_date = getLiteral('dcterms:issued') ||
+                             getLiteral('dcterms:created') ||
+                             getLiteral('dc:date');
+
+    // access URL
+    result.access_url = getURI('dcat:landingPage') ||
+                        subjectURI;
+
+    // formats from dcat distributions
+    var formatMatches = text.match(/dcat:mediaType\s+"([^"]+)"/gi);
+    if (formatMatches) {
+        result.formats = formatMatches.map(function(m) {
+            var match = m.match(/dcat:mediaType\s+"([^"]+)"/i);
+            return match ? match[1] : '';
+        }).filter(Boolean);
+    }
+
+    if (!result.identifier) result.identifier = 'uploaded-turtle-file';
+
+    return result;
+}
+
 function parseJSON(jsonData) {
     // DataCite format
     if (jsonData.data && jsonData.data.attributes) {
@@ -360,24 +462,24 @@ async function runFileAssessment() {
         var parsed;
 
         if (fileExtension === '.xml' || fileExtension === '.rdf') {
-    parsed = parseXML(text);
-} else if (fileExtension === '.ttl') {
-    parsed = parseTurtle(text);
-} else {
-    try {
-        var jsonData = JSON.parse(text);
-        parsed = parseJSON(jsonData);
-    } catch(e) {
-        showError('message-area',
-            'Could not parse file — please make sure it is valid JSON or XML. Error: ' + e.message);
-        return;
-    }
-}
+            parsed = parseXML(text);
+        } else if (fileExtension === '.ttl') {
+            parsed = parseTurtle(text);
+        } else {
+            try {
+                var jsonData = JSON.parse(text);
+                parsed = parseJSON(jsonData);
+            } catch(e) {
+                showError('message-area',
+                    'Could not parse file — please make sure it is valid JSON. Error: ' + e.message);
+                return;
+            }
+        }
 
         if (!parsed.title && !parsed.identifier) {
             showError('message-area',
                 'Could not extract metadata from file. ' +
-                'Make sure the file contains valid DataCite JSON, schema.org JSON-LD, or DataCite XML.');
+                'Make sure the file contains valid DataCite JSON, schema.org JSON-LD, DataCite XML, or DCAT Turtle.');
             return;
         }
 
@@ -408,91 +510,6 @@ async function runFileAssessment() {
     } catch(e) {
         showError('message-area', 'Assessment failed: ' + e.message);
     }
-}
-
-function parseTurtle(text) {
-    var result = {
-        identifier: null,
-        title: null,
-        description: null,
-        creator: null,
-        license: null,
-        formats: [],
-        provenance_date: null,
-        access_url: null
-    };
-
-    // extract literal values from turtle triples
-    function getLiteral(predicate) {
-        var patterns = [
-            new RegExp(predicate + '\\s+"([^"]+)"', 'i'),
-            new RegExp(predicate + '\\s+"""([^"]+)"""', 'i'),
-        ];
-        for (var i = 0; i < patterns.length; i++) {
-            var match = text.match(patterns[i]);
-            if (match) return match[1].trim();
-        }
-        return null;
-    }
-
-    function getURI(predicate) {
-        var match = text.match(
-            new RegExp(predicate + '\\s+<([^>]+)>', 'i')
-        );
-        return match ? match[1].trim() : null;
-    }
-
-    // try common RDF predicates for title
-    result.title = getLiteral('dcterms:title') ||
-                   getLiteral('dc:title') ||
-                   getLiteral('schema:name') ||
-                   getLiteral('rdfs:label');
-
-    // description
-    result.description = getLiteral('dcterms:description') ||
-                         getLiteral('dc:description') ||
-                         getLiteral('schema:description');
-
-    // creator/author
-    result.creator = getLiteral('dcterms:creator') ||
-                     getLiteral('dc:creator') ||
-                     getLiteral('schema:author') ||
-                     getLiteral('dcterms:publisher');
-
-    // license
-    result.license = getURI('dcterms:license') ||
-                     getURI('dc:rights') ||
-                     getLiteral('dcterms:license') ||
-                     getLiteral('dc:rights');
-
-    // identifier
-    result.identifier = getLiteral('dcterms:identifier') ||
-                        getLiteral('dc:identifier') ||
-                        getURI('owl:sameAs');
-
-    // date
-    result.provenance_date = getLiteral('dcterms:issued') ||
-                             getLiteral('dcterms:created') ||
-                             getLiteral('dc:date');
-
-    // access URL — look for subject URI at top of file
-    var subjectMatch = text.match(/<(https?:\/\/[^>]+)>/);
-    if (subjectMatch) {
-        result.access_url = subjectMatch[1];
-        if (!result.identifier) result.identifier = subjectMatch[1];
-    }
-
-    // formats
-    var formatMatch = text.match(/dcat:mediaType\s+"([^"]+)"/gi);
-    if (formatMatch) {
-        result.formats = formatMatch.map(function(m) {
-            return m.replace(/dcat:mediaType\s+"/i, '').replace('"', '');
-        });
-    }
-
-    if (!result.identifier) result.identifier = 'uploaded-turtle-file';
-
-    return result;
 }
 
 function renderReport(report) {
@@ -568,7 +585,6 @@ function downloadReport() {
     a.click();
 }
 
-// prefill DOI if coming from history page
 var prefill = localStorage.getItem('prefillDoi');
 if (prefill) {
     document.getElementById('doi-input').value = prefill;
