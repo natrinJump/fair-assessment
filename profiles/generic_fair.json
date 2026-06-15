@@ -1,7 +1,7 @@
 {
   "name": "Generic FAIR Profile",
   "domain": "generic",
-  "accepted_identifiers": ["doi", "handle", "ark"],
+  "accepted_identifiers": ["doi", "handle", "ark", "url"],
   "custom_identifiers": [],
   "required_metadata_fields": ["title", "description", "creator", "license"],
   "custom_metadata_fields": [],
