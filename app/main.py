@@ -263,6 +263,21 @@ async def assess(doi: str, profile: str = "generic"):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/assess/metadata")
+async def assess_from_metadata(
+    data: dict,
+    profile: str = "generic"
+):
+    try:
+        from app.services.normalizer import normalize_from_dict
+        normalized = normalize_from_dict(data, profile)
+        report = run_assessment(normalized, profile)
+        return report
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))    
 
 @app.post("/assess/upload")
 async def assess_upload(

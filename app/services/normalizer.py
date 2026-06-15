@@ -40,6 +40,31 @@ def normalize_datacite(raw: dict, doi: str) -> NormalizedMetadata:
         core=core
     )
 
+def normalize_from_dict(data: dict,
+                        profile_name: str = None) -> NormalizedMetadata:
+    """
+    Normalize a pre-parsed metadata dictionary.
+    Called when user uploads a file — parsing happens on frontend.
+    """
+    custom_fields = []
+    if profile_name:
+        try:
+            from app.services.profile_service import (
+                get_profile_by_domain, get_profile_by_name
+            )
+            p = get_profile_by_domain(profile_name)
+            if not p:
+                p = get_profile_by_name(profile_name)
+            if p:
+                custom_fields = (
+                    p.get("custom_metadata_fields", []) +
+                    p.get("required_metadata_fields", [])
+                )
+        except Exception:
+            pass
+
+    return _normalize_json_upload(data, data.get("identifier", "uploaded-file"), custom_fields)
+
 def normalize_generic(raw: dict, doi: str) -> NormalizedMetadata:
     data = raw.get("data", {})
 
