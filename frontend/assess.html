@@ -5,6 +5,22 @@
     <title>Assess - FAIR Assessment Tool</title>
     <link rel="stylesheet" href="style.css">
     <style>
+        .tab-btn {
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            border: 1px solid #1a73e8;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .tab-btn.active {
+            background: #1a73e8;
+            color: white;
+        }
+        .tab-btn.inactive {
+            background: white;
+            color: #1a73e8;
+        }
         .input-group {
             display: flex;
             flex-direction: column;
@@ -49,6 +65,46 @@
     <div class="card">
         <h2>Run Assessment</h2>
         <div class="input-group">
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem">
+        <button type="button" class="tab-btn active" id="tab-doi"
+            onclick="switchTab('doi')">
+            Enter DOI / URL
+        </button>
+        <button type="button" class="tab-btn inactive" id="tab-file"
+            onclick="switchTab('file')">
+            Upload Metadata File
+        </button>
+    </div>
+
+    <div id="panel-doi">
+        <div class="input-row">
+            <input type="text" id="doi-input" list="doi-suggestions"
+                placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
+            <datalist id="doi-suggestions"></datalist>
+            <select id="profile-select"></select>
+            <button type="button" class="btn btn-primary"
+                onclick="runAssessment()">Run Assessment</button>
+        </div>
+    </div>
+
+    <div id="panel-file" style="display:none">
+        <div class="input-row">
+            <input type="file" id="file-input"
+                accept=".json,.jsonld,.xml"
+                style="flex:1;padding:0.5rem;border:1px solid #ddd;
+                border-radius:6px;font-size:0.875rem">
+            <select id="profile-select-file"></select>
+            <button type="button" class="btn btn-primary"
+                onclick="runFileAssessment()">
+                Run Assessment
+            </button>
+        </div>
+        <div style="font-size:0.78rem;color:#888;margin-top:0.35rem">
+            Supported: DataCite JSON, schema.org JSON-LD (.json, .jsonld),
+            DataCite XML (.xml)
+        </div>
+    </div>
+</div>
     <div class="input-row">
         <input type="text" id="doi-input" list="doi-suggestions"
             placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
@@ -256,6 +312,186 @@ function renderReport(report) {
                 <strong>${r.metric_id}:</strong> ${r.recommendation}
             </div>`
         ).join('');
+    }
+}
+
+function switchTab(tab) {
+    var isDoi = tab === 'doi';
+    document.getElementById('panel-doi').style.display =
+        isDoi ? 'block' : 'none';
+    document.getElementById('panel-file').style.display =
+        isDoi ? 'none' : 'block';
+    document.getElementById('tab-doi').className =
+        'tab-btn ' + (isDoi ? 'active' : 'inactive');
+    document.getElementById('tab-file').className =
+        'tab-btn ' + (isDoi ? 'inactive' : 'active');
+}
+
+function parseXML(xmlText) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(xmlText, 'text/xml');
+
+    function getText(tag) {
+        var el = doc.getElementsByTagName(tag)[0];
+        return el ? el.textContent.trim() : null;
+    }
+
+    var identifier = getText('identifier') || getText('doi') || 'unknown';
+    var title = getText('title');
+    var description = getText('description');
+    var creator = getText('creatorName') || getText('creator');
+    var license = null;
+    var rightsEl = doc.getElementsByTagName('rights')[0];
+    if (rightsEl) {
+        license = rightsEl.getAttribute('rightsURI') ||
+                  rightsEl.textContent.trim();
+    }
+    var formats = [];
+    var formatEls = doc.getElementsByTagName('format');
+    for (var i = 0; i < formatEls.length; i++) {
+        formats.push(formatEls[i].textContent.trim());
+    }
+    var date = getText('publicationYear') || getText('date');
+
+    return {
+        identifier: identifier,
+        title: title,
+        description: description,
+        creator: creator,
+        license: license,
+        formats: formats,
+        provenance_date: date,
+        access_url: identifier.startsWith('10.')
+            ? 'https://doi.org/' + identifier : null
+    };
+}
+
+function parseJSON(jsonData) {
+    // DataCite format
+    if (jsonData.data && jsonData.data.attributes) {
+        var attrs = jsonData.data.attributes;
+        var titles = attrs.titles || [];
+        var creators = attrs.creators || [];
+        var rights = attrs.rightsList || [];
+        return {
+            identifier: attrs.doi || 'unknown',
+            title: titles[0] ? titles[0].title : null,
+            description: attrs.descriptions && attrs.descriptions[0]
+                ? attrs.descriptions[0].description : null,
+            creator: creators[0] ? creators[0].name : null,
+            license: rights[0] ? rights[0].rightsUri : null,
+            formats: attrs.formats || [],
+            provenance_date: attrs.published || null,
+            access_url: 'https://doi.org/' + (attrs.doi || '')
+        };
+    }
+
+    // schema.org JSON-LD
+    if (jsonData['@type'] || jsonData['@context']) {
+        var creators2 = jsonData.creator || jsonData.author || [];
+        if (!Array.isArray(creators2)) creators2 = [creators2];
+        var license = jsonData.license;
+        if (typeof license === 'object') license = license['@id'] || license.url;
+        var dist = jsonData.distribution || [];
+        if (!Array.isArray(dist)) dist = [dist];
+        var formats = dist.map(function(d) {
+            return d.encodingFormat || d.fileFormat || '';
+        }).filter(Boolean);
+
+        return {
+            identifier: jsonData.identifier || jsonData['@id'] || 'unknown',
+            title: jsonData.name || jsonData.headline || null,
+            description: jsonData.description || null,
+            creator: creators2[0]
+                ? (creators2[0].name || creators2[0]) : null,
+            license: license || null,
+            formats: formats,
+            provenance_date: jsonData.datePublished ||
+                             jsonData.dateCreated || null,
+            access_url: jsonData.url || jsonData['@id'] || null
+        };
+    }
+
+    // generic flat JSON — use as-is
+    return {
+        identifier: jsonData.identifier || jsonData.doi ||
+                    jsonData.id || 'unknown',
+        title: jsonData.title || jsonData.name || null,
+        description: jsonData.description || jsonData.abstract || null,
+        creator: jsonData.creator || jsonData.author || null,
+        license: jsonData.license || jsonData.rights || null,
+        formats: jsonData.formats || jsonData.format
+            ? [jsonData.format] : [],
+        provenance_date: jsonData.publicationYear ||
+                         jsonData.datePublished || null,
+        access_url: jsonData.url || null
+    };
+}
+
+async function runFileAssessment() {
+    var fileInput = document.getElementById('file-input');
+    var profile = document.getElementById('profile-select-file').value;
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showError('message-area', 'Please select a file to upload');
+        return;
+    }
+
+    var file = fileInput.files[0];
+    var filename = file.name.toLowerCase();
+
+    document.getElementById('message-area').innerHTML =
+        '<div class="loading">Parsing file and running assessment...</div>';
+    document.getElementById('results-container').style.display = 'none';
+
+    try {
+        var text = await file.text();
+        var parsed;
+
+        if (filename.endswith('.xml')) {
+            parsed = parseXML(text);
+        } else {
+            try {
+                var jsonData = JSON.parse(text);
+                parsed = parseJSON(jsonData);
+            } catch(e) {
+                showError('message-area',
+                    'Could not parse file — make sure it is valid JSON or XML');
+                return;
+            }
+        }
+
+        // send parsed metadata to backend
+        var response = await fetch(
+            API + '/assess/metadata?profile=' +
+            encodeURIComponent(profile),
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(parsed)
+            }
+        );
+
+        if (!response.ok) {
+            var err = await response.json().catch(function() { return {}; });
+            throw new Error(err.detail || 'Assessment failed');
+        }
+
+        var report = await response.json();
+        lastReport = report;
+
+        // save to local history
+        var profiles = await apiFetch('/profiles');
+        var profileData = profiles.find(function(p) {
+            return p.domain === profile;
+        });
+        addToLocalHistory(report, profileData || {});
+
+        document.getElementById('message-area').innerHTML = '';
+        renderReport(report);
+
+    } catch(e) {
+        showError('message-area', 'Assessment failed: ' + e.message);
     }
 }
 
