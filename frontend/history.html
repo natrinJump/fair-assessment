@@ -51,20 +51,26 @@
     <a href="about.html">About</a>
 </nav>
 
-<div class="card no-print">
-    <h2>Assessment History</h2>
-    <p style="font-size:0.8rem;color:#888;margin-bottom:0.75rem">
-        History is stored locally in your browser and is not shared with other users.
-    </p>
-    <div style="display:flex;gap:0.75rem;align-items:center">
-        <input type="text" id="doi-filter"
-            placeholder="Filter by DOI (leave empty to see all)"
-            style="flex:1;margin-bottom:0">
-        <button type="button" class="btn btn-primary"
-            onclick="loadHistory()">Search</button>
-        <button type="button" class="btn btn-secondary"
-            style="color:#d93025;border-color:#d93025"
-            onclick="clearAll()">Clear All History</button>
+<div class="container">
+    <div class="card no-print">
+        <h2>Assessment History</h2>
+        <p style="font-size:0.8rem;color:#888;margin-bottom:0.75rem">
+            History is stored locally in your browser and is not shared with other users.
+        </p>
+        <div style="display:flex;gap:0.75rem;align-items:center">
+            <input type="text" id="doi-filter"
+                placeholder="Filter by DOI (leave empty to see all)"
+                style="flex:1;margin-bottom:0">
+            <button type="button" class="btn btn-primary"
+                onclick="loadHistory()">Search</button>
+            <button type="button" class="btn btn-secondary"
+                style="color:#d93025;border-color:#d93025"
+                onclick="clearAll()">Clear All History</button>
+        </div>
+    </div>
+
+    <div id="history-container">
+        <div class="loading">Loading history...</div>
     </div>
 </div>
 
@@ -94,7 +100,7 @@ function clearAll() {
     loadHistory();
 }
 
-async function loadHistory() {
+function loadHistory() {
     var doi = document.getElementById('doi-filter').value.trim();
     var container = document.getElementById('history-container');
     container.innerHTML = '<div class="loading">Loading...</div>';
@@ -111,7 +117,7 @@ async function loadHistory() {
         allHistory = history;
 
         if (!allHistory.length) {
-            container.innerHTML = '<div class="card">No assessments found.</div>';
+            container.innerHTML = '<div class="card">No assessments found. Run an assessment first.</div>';
             return;
         }
 
@@ -121,8 +127,106 @@ async function loadHistory() {
             groupedData[h.doi].push(h);
         });
 
-        // rest of the rendering stays exactly the same
-        // ... (keep all existing HTML building code)
+        var html = '';
+        Object.keys(groupedData).forEach(function(doi) {
+            var runs = groupedData[doi];
+            var safeId = doi.replace(/[^a-z0-9]/gi, '_');
+
+            html += '<div class="card">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">';
+            html += '<h2 style="font-size:0.9rem;margin:0">' + doi + '</h2>';
+            html += '<div style="display:flex;gap:0.5rem">';
+            html += '<button type="button" class="btn-sm btn-sm-secondary no-print" onclick="exportAllJSON(\'' + doi.replace(/'/g, "\\'") + '\')">Export all JSON</button>';
+            html += '<button type="button" class="btn-sm btn-sm-secondary no-print" onclick="runNew(\'' + doi.replace(/'/g, "\\'") + '\')">Run New Assessment</button>';
+            html += '</div></div>';
+
+            if (runs.length > 1) {
+                html += '<div style="margin-bottom:1rem;padding:0.5rem;background:#fafafa;border-radius:6px">';
+                html += '<canvas id="chart-' + safeId + '" height="80"></canvas>';
+                html += '</div>';
+            }
+
+            runs.forEach(function(run, i) {
+                var prev = runs[i + 1];
+                var trend = prev
+                    ? (run.overall_score > prev.overall_score
+                        ? '<span class="history-trend up">&#8593; improved</span>'
+                        : run.overall_score < prev.overall_score
+                            ? '<span class="history-trend down">&#8595; dropped</span>'
+                            : '<span class="history-trend">&#8594; no change</span>')
+                    : '<span style="font-size:0.75rem;color:#999">initial run</span>';
+
+                var maturityHtml = '';
+                if (run.maturity_level) {
+                    maturityHtml = '<div style="font-size:0.7rem;font-weight:600;color:' +
+                        getMaturityColor(run.maturity_level) + '">' + run.maturity_level + '</div>';
+                }
+
+                html += '<div class="run-item" id="run-item-' + run.id + '">';
+                html += '<div class="run-header" id="run-header-' + run.id + '" onclick="toggleRun(' + run.id + ')">';
+                html += '<div>';
+                html += '<div style="font-size:0.875rem;font-weight:500">Run ' + (runs.length - i) + ' &mdash; ' + run.profile_name + '</div>';
+                html += '<div style="font-size:0.75rem;color:#666;margin-top:2px">' + formatDate(run.created_at) + '</div>';
+                html += '<div style="margin-top:4px">' + trend + '</div>';
+                html += '</div>';
+                html += '<div style="display:flex;align-items:center;gap:1rem">';
+                html += '<div style="text-align:right">';
+                html += '<div class="run-score">' + formatScore(run.overall_score) + '</div>';
+                html += maturityHtml;
+                html += '<div style="font-size:0.72rem;color:#666">F:' + Math.round(run.f_score) + ' A:' + Math.round(run.a_score) + ' I:' + Math.round(run.i_score) + ' R:' + Math.round(run.r_score) + '</div>';
+                html += '</div>';
+                html += '<div class="run-actions no-print" onclick="event.stopPropagation()">';
+                html += '<button type="button" class="btn-sm btn-sm-secondary" onclick="exportJSON(' + run.id + ')">JSON</button>';
+                html += '<button type="button" class="btn-sm btn-sm-fip" onclick="exportRunTurtle(' + run.id + ')">FIP</button>';
+                html += '<button type="button" class="btn-sm btn-sm-danger" onclick="deleteRun(' + run.id + ')">Delete</button>';
+                html += '</div></div></div>';
+                html += '<div class="run-details" id="run-details-' + run.id + '">' + renderRunDetails(run) + '</div>';
+                html += '</div>';
+            });
+
+            html += '</div>';
+        });
+
+        container.innerHTML = html;
+
+        setTimeout(function() {
+            Object.keys(groupedData).forEach(function(doi) {
+                var runs = groupedData[doi];
+                if (runs.length <= 1) return;
+                var safeId = doi.replace(/[^a-z0-9]/gi, '_');
+                var canvas = document.getElementById('chart-' + safeId);
+                if (!canvas) return;
+                var sorted = runs.slice().reverse();
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: sorted.map(function(r, i) { return 'Run ' + (i + 1); }),
+                        datasets: [{
+                            label: 'Overall Score',
+                            data: sorted.map(function(r) { return r.overall_score; }),
+                            borderColor: '#1a73e8',
+                            backgroundColor: 'rgba(26,115,232,0.15)',
+                            borderWidth: 2.5,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#1a73e8',
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
+                            title: { display: true, text: 'Score Trend Over Runs', font: { size: 12 }, color: '#444' }
+                        },
+                        scales: {
+                            y: { min: 0, max: 100, ticks: { font: { size: 10 }, callback: function(val) { return val + '%'; } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                            x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+                        }
+                    }
+                });
+            });
+        }, 50);
 
     } catch(e) {
         container.innerHTML = '<div class="error">Error loading history: ' + e.message + '</div>';
@@ -201,7 +305,7 @@ function toggleRun(id) {
     }
 }
 
-async function deleteRun(id) {
+function deleteRun(id) {
     if (!confirm('Delete this assessment run? This cannot be undone.')) return;
     deleteLocalHistoryRun(id);
     loadHistory();
@@ -239,8 +343,7 @@ function exportRunTurtle(id) {
 
 function exportAllJSON(doi) {
     var history = getLocalHistory().filter(function(h) { return h.doi === doi; });
-    var blob = new Blob([JSON.stringify(history, null, 2)],
-        { type: 'application/json' });
+    var blob = new Blob([JSON.stringify(history, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
