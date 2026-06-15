@@ -514,6 +514,15 @@ def check_i2(
         })
     all_vocabs.extend(profile.custom_vocabularies)
 
+    seen = set()
+    unique_vocabs = []
+    for v in all_vocabs:
+        name = v.get("name", "").lower()
+        if name not in seen:
+            seen.add(name)
+            unique_vocabs.append(v)
+    all_vocabs = unique_vocabs
+
     if not all_vocabs:
         # no vocab required — check for any known standard vocabularies
         known = {
