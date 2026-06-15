@@ -49,12 +49,9 @@ def match_identifier(identifier: str, accepted: str,
         return True
     if accepted_lower == "url" and id_lower.startswith("http"):
         return True
-
-    # generic substring match as fallback
     if accepted_lower in id_lower:
         return True
 
-    # custom identifier patterns
     for custom in custom_identifiers:
         match_type = custom.get("match_type", "contains")
         value = custom.get("value", "").lower()
@@ -86,6 +83,10 @@ def detect_identifier_type(identifier: str) -> str:
         return "biosample"
     if id_lower.startswith(("nc_", "nm_")):
         return "genbank"
+    if "w3id.org" in id_lower:
+        return "w3id"
+    if id_lower.startswith("http"):
+        return "url"
     return "unknown"
 
 
@@ -99,21 +100,17 @@ def check_vocabulary(metadata: NormalizedMetadata,
         str(metadata.custom).lower()
     )
 
-    # check full vocab name
     if vocab_name and vocab_name in search_text:
         return True
 
-    # check abbreviation (first letters of each word)
     abbrev = "".join(w[0] for w in vocab_name.split() if w).lower()
     if len(abbrev) >= 2 and abbrev in search_text:
         return True
 
-    # check keywords
     for kw in keywords:
         if kw and kw in search_text:
             return True
 
-    # check if all significant words of vocab name appear in search text
     words = [w for w in vocab_name.split() if len(w) > 3]
     if words and all(w in search_text for w in words):
         return True
@@ -151,42 +148,6 @@ def get_maturity(score: float) -> tuple:
             "basic metadata fields, and a machine-readable license."
         )
 
-def check_custom_metadata(metadata: NormalizedMetadata,
-                          profile: Profile) -> list:
-    """
-    Generate individual metric results for each custom
-    domain-specific field — shown separately in the report.
-    """
-    results = []
-    for field in profile.custom_metadata_fields:
-        value = getattr(metadata.core, field, None)
-        if value is None:
-            value = metadata.custom.get(field)
-
-        if value:
-            results.append(MetricResult(
-                metric_id=f"CUSTOM-{field.upper()}",
-                principle="F",
-                priority="important",
-                status="pass",
-                description=f"Domain-specific field '{field}' is present",
-                evidence=f"{field}: {str(value)[:100]}",
-                is_custom=True
-            ))
-        else:
-            results.append(MetricResult(
-                metric_id=f"CUSTOM-{field.upper()}",
-                principle="F",
-                priority="important",
-                status="fail",
-                description=f"Domain-specific field '{field}' not found",
-                evidence=f"'{field}' not detected in repository metadata",
-                recommendation=f"'{field}' is required by this profile but "
-                    f"not exposed by the repository API. Consider adding "
-                    f"it to your dataset's metadata record.",
-                is_custom=True
-            ))
-    return results
 
 # ─── F Metrics ────────────────────────────────────────────────
 
@@ -199,7 +160,7 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="fail",
             description="No persistent identifier found in metadata",
-            recommendation=f"Add a persistent identifier. "
+            recommendation="Add a persistent identifier. "
                 f"This profile accepts: "
                 f"{', '.join(profile.accepted_identifiers)}"
                 + (f" and {len(profile.custom_identifiers)} custom type(s)"
@@ -250,9 +211,8 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    standard_fields = profile.required_metadata_fields
-    custom_fields = profile.custom_metadata_fields
-    all_required = standard_fields + custom_fields
+    all_required = (profile.required_metadata_fields +
+                    profile.custom_metadata_fields)
 
     if not all_required:
         return MetricResult(
@@ -261,34 +221,19 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="pass",
             description="No specific metadata fields required by this profile",
-            evidence="No required fields configured",
-            is_custom=False
+            evidence="No required fields configured"
         )
 
-    missing_standard = []
-    missing_custom = []
+    missing = []
     present = []
-
-    for field in standard_fields:
+    for field in all_required:
         value = getattr(core, field, None)
         if value is None:
             value = metadata.custom.get(field)
         if value:
             present.append(field)
         else:
-            missing_standard.append(field)
-
-    for field in custom_fields:
-        value = getattr(core, field, None)
-        if value is None:
-            value = metadata.custom.get(field)
-        if value:
-            present.append(field)
-        else:
-            missing_custom.append(field)
-
-    missing = missing_standard + missing_custom
-    has_custom_missing = len(missing_custom) > 0
+            missing.append(field)
 
     if not missing:
         return MetricResult(
@@ -297,10 +242,15 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="pass",
             description="All required metadata fields are present",
-            evidence=f"Present: {', '.join(present)}",
-            is_custom=False
+            evidence=f"Present: {', '.join(present)}"
         )
     if present:
+        custom_missing = [f for f in missing
+                          if f in profile.custom_metadata_fields]
+        note = ""
+        if custom_missing:
+            note = (f" Note: {', '.join(custom_missing)} are domain-specific "
+                    f"fields that may not be exposed by the repository API.")
         return MetricResult(
             metric_id="F2",
             principle="F",
@@ -309,11 +259,7 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             description="Some required metadata fields are missing",
             evidence=f"Present: {', '.join(present)} | "
                 f"Missing: {', '.join(missing)}",
-            recommendation=f"Add missing fields: {', '.join(missing)}."
-                + (f" Note: {', '.join(missing_custom)} are domain-specific "
-                   f"fields that may not be exposed by the repository API."
-                   if has_custom_missing else ""),
-            is_custom=has_custom_missing
+            recommendation=f"Add missing fields: {', '.join(missing)}." + note
         )
     return MetricResult(
         metric_id="F2",
@@ -322,8 +268,8 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         status="fail",
         description="All required metadata fields are missing",
         evidence=f"Missing: {', '.join(missing)}",
-        recommendation=f"Add required fields: {', '.join(all_required)}",
-        is_custom=False
+        recommendation=f"No required fields found. "
+            f"This profile requires: {', '.join(all_required)}"
     )
 
 
@@ -553,10 +499,10 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     all_vocabs.extend(profile.custom_vocabularies)
 
     if not all_vocabs:
-        # no vocab required — check for any known standard vocabularies
         known = {
-            "schema.org": ["schema.org", '"@context"'],
-            "Dublin Core": ["dcterms", "dc.title", "dublin core"],
+            "schema.org": ["schema.org", '"@context"', "schema:"],
+            "Dublin Core": ["dcterms:", "dc.title", "dublin core",
+                            "dcterms", "dc:"],
             "DCAT": ["dcat:", "dcat."],
             "SKOS": ["skos:", "skos."]
         }
@@ -584,7 +530,6 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 "to improve interoperability"
         )
 
-    # check each required vocabulary
     passed = []
     failed = []
     for vocab in all_vocabs:
@@ -640,7 +585,8 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     reference_keywords = [
         "related", "references", "citation", "ispartof",
         "isderivedfrom", "iscitedby", "isversionof",
-        "relatedidentifier", "relation"
+        "relatedidentifier", "relation", "conformsto",
+        "dcterms:references", "dcterms:relation"
     ]
     found = [kw for kw in reference_keywords if kw in search]
 
@@ -663,7 +609,7 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             status="fail",
             description="No qualified references found — required by "
                 "this profile",
-            evidence="No related Identifiers or citation fields detected",
+            evidence="No relatedIdentifiers or citation fields detected",
             recommendation="Add qualified references to related datasets, "
                 "publications, or derived resources"
         )
@@ -945,8 +891,7 @@ def run_assessment(metadata: NormalizedMetadata,
                    profile_name: str = "generic") -> AssessmentReport:
     profile = load_profile(profile_name)
 
-    # standard FAIR metric checks
-    standard_results = [
+    results = [
         check_f1(metadata, profile),
         check_f2(metadata, profile),
         check_f3(metadata, profile),
@@ -963,8 +908,6 @@ def run_assessment(metadata: NormalizedMetadata,
         check_r1_2(metadata, profile),
         check_r1_3(metadata, profile),
     ]
-
-    results = standard_results
 
     f_score = calculate_score(results, "F")
     a_score = calculate_score(results, "A")
