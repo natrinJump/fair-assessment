@@ -196,6 +196,58 @@ function parseXML(xmlText) {
     for (var i = 0; i < formatEls.length; i++) {
         formats.push(formatEls[i].textContent.trim());
     }
+
+        // extract vocabularies from subjectScheme attributes
+    var subjectEls = doc.getElementsByTagName('subject');
+    var schemeVocabs = [];
+    for (var i = 0; i < subjectEls.length; i++) {
+        var scheme = subjectEls[i].getAttribute('subjectScheme') ||
+                    subjectEls[i].getAttribute('schemeURI') || '';
+        if (scheme) schemeVocabs.push(scheme.toLowerCase());
+    }
+
+    // also scan raw XML text for namespace declarations and known vocab URIs
+    var xmlLower = xmlText.toLowerCase();
+    var xmlVocabMap = {
+        'dc:': 'Dublin Core',
+        'dcterms:': 'Dublin Core',
+        'purl.org/dc': 'Dublin Core',
+        'dcat:': 'DCAT',
+        'w3.org/ns/dcat': 'DCAT',
+        'skos:': 'SKOS',
+        'w3.org/2004/02/skos': 'SKOS',
+        'schema:': 'schema.org',
+        'schema.org': 'schema.org',
+        'foaf:': 'FOAF',
+        'xmlns.com/foaf': 'FOAF',
+        'agrovoc': 'AGROVOC',
+        'aims.fao.org': 'AGROVOC',
+        'meshb.nlm': 'MeSH',
+        'id.nlm.nih.gov/mesh': 'MeSH',
+        'ebi.ac.uk/ols/ontologies/envo': 'ENVO',
+        'purl.obolibrary.org/obo/envo': 'ENVO',
+        'ddialliance.org': 'DDI'
+    };
+
+    var xmlDetected = [];
+    Object.keys(xmlVocabMap).forEach(function(key) {
+        if (xmlLower.indexOf(key) !== -1) {
+            var vocab = xmlVocabMap[key];
+            if (xmlDetected.indexOf(vocab) === -1) {
+                xmlDetected.push(vocab);
+            }
+        }
+    });
+
+    // combine subjectScheme values and detected vocabs
+    var allDetected = schemeVocabs.concat(xmlDetected);
+    if (allDetected.length > 0) {
+        var unique = allDetected.filter(function(v, i) {
+            return allDetected.indexOf(v) === i;
+        });
+        result.detected_vocabularies = unique.join(', ');
+    }
+
     return {
         identifier: identifier,
         title: getText('title'),
