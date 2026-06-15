@@ -1,6 +1,9 @@
 from pydantic import BaseModel
 from typing import Optional
 
+# I2 — vocabulary fairness threshold
+min_vocab_fairness_level: str = "none"  # none | basic | standard | full
+
 class CustomIdentifier(BaseModel):
     name: str
     match_type: str  # "starts_with", "contains", "regex"

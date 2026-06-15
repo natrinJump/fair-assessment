@@ -488,7 +488,23 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     )
 
 
-def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+def check_i2(
+    metadata: NormalizedMetadata,
+    profile: Profile,
+    vocab_fairness: dict = None
+) -> MetricResult:
+    """
+    I2: Metadata uses FAIR vocabularies.
+    Two-layer check:
+    1. Vocabulary presence — are required vocabulary terms referenced in metadata?
+    2. Vocabulary FAIRness — does the vocabulary itself meet the profile's
+       minimum FAIR level? (Cox et al. 2021, Ten Simple Rules for FAIR Vocabs)
+    """
+    from app.services.vocabulary_service import meets_fairness_threshold
+
+    vocab_fairness = vocab_fairness or {}
+    min_level = getattr(profile, "min_vocab_fairness_level", "none")
+
     all_vocabs = []
     if profile.required_vocabulary:
         all_vocabs.append({
@@ -499,10 +515,10 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     all_vocabs.extend(profile.custom_vocabularies)
 
     if not all_vocabs:
+        # no vocab required — check for any known standard vocabularies
         known = {
             "schema.org": ["schema.org", '"@context"', "schema:"],
-            "Dublin Core": ["dcterms:", "dc.title", "dublin core",
-                            "dcterms", "dc:"],
+            "Dublin Core": ["dcterms:", "dc.title", "dublin core", "dcterms", "dc:"],
             "DCAT": ["dcat:", "dcat."],
             "SKOS": ["skos:", "skos."]
         }
@@ -530,52 +546,94 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 "to improve interoperability"
         )
 
-    passed = []
-    failed = []
+    # Layer 1: presence check
+    passed_presence = []
+    failed_presence = []
     for vocab in all_vocabs:
         if check_vocabulary(metadata, vocab):
-            passed.append(vocab["name"])
+            passed_presence.append(vocab["name"])
         else:
-            failed.append(vocab["name"])
+            failed_presence.append(vocab["name"])
 
-    if not failed:
+    # Layer 2: vocabulary FAIR check (if min_level is set)
+    failed_fairness = []
+    fairness_notes = []
+    if min_level != "none" and vocab_fairness:
+        for vocab_name in passed_presence:
+            result = vocab_fairness.get(vocab_name)
+            if result and not meets_fairness_threshold(result, min_level):
+                failed_fairness.append(vocab_name)
+                fairness_notes.append(
+                    f"{vocab_name} is at '{result.get('level', 'unknown')}' "
+                    f"FAIR level (required: {min_level}). {result.get('note', '')}"
+                )
+
+    # Compose result
+    if failed_presence:
+        evidence = f"Detected: {', '.join(passed_presence) or 'none'} | " \
+                   f"Not detected: {', '.join(failed_presence)}"
+        if passed_presence:
+            return MetricResult(
+                metric_id="I2",
+                principle="I",
+                priority="important",
+                status="partial",
+                description="Some required vocabularies not detected in metadata",
+                evidence=evidence + ". Note: detection depends on "
+                    "repository API response.",
+                recommendation=f"Add references to: {', '.join(failed_presence)}. "
+                    f"Ensure metadata uses these vocabularies and the "
+                    f"repository exposes them through its API."
+            )
         return MetricResult(
             metric_id="I2",
             principle="I",
             priority="important",
-            status="pass",
-            description="Metadata uses all required vocabularies",
-            evidence=f"Vocabularies confirmed: {', '.join(passed)}"
+            status="fail",
+            description="Required vocabularies not detected in metadata",
+            evidence=evidence + ". Note: detection depends on "
+                "repository API response.",
+            recommendation=f"This profile requires: {', '.join(failed_presence)}. "
+                f"Ensure metadata uses these controlled vocabularies."
         )
-    if passed:
+
+    # All vocabs detected — now check FAIR level
+    if failed_fairness:
         return MetricResult(
             metric_id="I2",
             principle="I",
             priority="important",
             status="partial",
-            description="Some required vocabularies not detected",
-            evidence=f"Found: {', '.join(passed)} | "
-                f"Not detected: {', '.join(failed)}. "
-                f"Note: detection depends on repository API response.",
-            recommendation=f"Add references to: {', '.join(failed)}. "
-                f"Ensure metadata uses these vocabularies and that "
-                f"the repository exposes them through its API."
+            description=f"Vocabulary detected but does not meet minimum "
+                f"FAIR level ({min_level}) required by this profile",
+            evidence=f"Vocabularies detected: {', '.join(passed_presence)}. "
+                f"FAIR check: {'; '.join(fairness_notes)}",
+            recommendation=f"This profile requires vocabularies at '{min_level}' "
+                f"FAIR level or above. Consider using a more FAIR vocabulary "
+                f"(e.g. one with a resolvable URI, machine-readable format, "
+                f"and declared licence) as recommended by Cox et al. (2021)."
         )
+
+    # Build evidence with fairness info
+    if min_level != "none" and vocab_fairness:
+        fairness_evidence = []
+        for name in passed_presence:
+            r = vocab_fairness.get(name, {})
+            fairness_evidence.append(
+                f"{name} (FAIR level: {r.get('level', 'unknown')})"
+            )
+        evidence = f"Vocabularies confirmed: {', '.join(fairness_evidence)}"
+    else:
+        evidence = f"Vocabularies confirmed: {', '.join(passed_presence)}"
+
     return MetricResult(
         metric_id="I2",
         principle="I",
         priority="important",
-        status="fail",
-        description="Required vocabularies not detected in metadata",
-        evidence=f"Required but not found: {', '.join(failed)}. "
-            f"Note: vocabulary detection depends on the repository "
-            f"exposing vocabulary references in their API response.",
-        recommendation=f"This profile requires: {', '.join(failed)}. "
-            f"Ensure metadata uses these controlled vocabularies and "
-            f"that your repository exposes vocabulary references "
-            f"through its metadata API."
+        status="pass",
+        description="Metadata uses required FAIR vocabularies",
+        evidence=evidence
     )
-
 
 def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     custom_str = str(metadata.custom).lower()
@@ -887,9 +945,13 @@ def calculate_score(results: list, principle: str) -> float:
     return round((earned / total_weight) * 100, 1)
 
 
-def run_assessment(metadata: NormalizedMetadata,
-                   profile_name: str = "generic") -> AssessmentReport:
+def run_assessment(
+    metadata: NormalizedMetadata,
+    profile_name: str = "generic",
+    vocab_fairness: dict = None
+) -> AssessmentReport:
     profile = load_profile(profile_name)
+    vocab_fairness = vocab_fairness or {}
 
     results = [
         check_f1(metadata, profile),
@@ -901,14 +963,14 @@ def run_assessment(metadata: NormalizedMetadata,
         check_a1_2(metadata, profile),
         check_a2(metadata, profile),
         check_i1(metadata, profile),
-        check_i2(metadata, profile),
+        check_i2(metadata, profile, vocab_fairness=vocab_fairness),  # pass here
         check_i3(metadata, profile),
         check_r1(metadata, profile),
         check_r1_1(metadata, profile),
         check_r1_2(metadata, profile),
         check_r1_3(metadata, profile),
     ]
-
+    
     f_score = calculate_score(results, "F")
     a_score = calculate_score(results, "A")
     i_score = calculate_score(results, "I")

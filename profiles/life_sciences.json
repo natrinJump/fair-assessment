@@ -33,5 +33,6 @@
   "accepted_licenses": ["cc-by", "cc0"],
   "required_license": null,
   "required_provenance_fields": ["creator", "provenance_date", "description"],
-  "community_standard": "Dublin Core"
+  "community_standard": "Dublin Core",
+  "min_vocab_fairness_level": "standard"
 }

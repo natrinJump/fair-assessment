@@ -22,6 +22,7 @@ class ProfileDB(SQLModel, table=True):
     required_license: Optional[str] = None
     required_provenance_fields: str = '["creator", "provenance_date"]'
     community_standard: Optional[str] = None
+    min_vocab_fairness_level: str = "none"
 
 class AssessmentHistoryDB(SQLModel, table=True):
     __tablename__ = "assessmenthistorydb"

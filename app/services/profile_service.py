@@ -22,6 +22,7 @@ def _db_to_dict(p: ProfileDB) -> dict:
         "required_license": p.required_license,
         "required_provenance_fields": json.loads(p.required_provenance_fields),
         "community_standard": p.community_standard,
+        "min_vocab_fairness_level": p.min_vocab_fairness_level,
     }
 
 def _dict_to_db(data: dict) -> ProfileDB:
@@ -45,6 +46,7 @@ def _dict_to_db(data: dict) -> ProfileDB:
             data.get("required_provenance_fields",
                      ["creator", "provenance_date"])),
         community_standard=data.get("community_standard"),
+        min_vocab_fairness_level=data.get("min_vocab_fairness_level", "none"),
     )
 
 def seed_profiles():
@@ -99,21 +101,24 @@ def update_profile(name: str, data: dict) -> dict:
         if not results:
             return None
         p = results[0]
-        for field, json_fields in [
-            ("accepted_identifiers", True),
-            ("custom_identifiers", True),
-            ("required_metadata_fields", True),
-            ("custom_metadata_fields", True),
-            ("accepted_formats", True),
-            ("custom_vocabularies", True),
-            ("accepted_licenses", True),
-            ("required_provenance_fields", True),
+        for field in [
+            "accepted_identifiers",
+            "custom_identifiers",
+            "required_metadata_fields",
+            "custom_metadata_fields",
+            "accepted_formats",
+            "custom_vocabularies",
+            "accepted_licenses",
+            "required_provenance_fields",
         ]:
             if field in data:
                 setattr(p, field, json.dumps(data[field]))
         for field in [
-            "required_vocabulary", "required_license",
-            "community_standard", "domain"
+            "required_vocabulary",
+            "required_license",
+            "community_standard",
+            "domain",
+            "min_vocab_fairness_level",
         ]:
             if field in data:
                 setattr(p, field, data[field])

@@ -332,6 +332,20 @@
                 style="background:white">
         </div>
         <div class="configurable-block">
+    <label>Minimum vocabulary FAIR level:</label>
+    <div class="hint">
+        Requires the vocabulary itself to meet a minimum level of
+        FAIRness (Cox et al. 2021). Higher levels enforce stricter
+        vocabulary quality.
+    </div>
+    <select id="min-vocab-level" style="background:white">
+        <option value="none">None — no vocabulary FAIR check</option>
+        <option value="basic">Basic — vocabulary URI must resolve (≥40%)</option>
+        <option value="standard">Standard — machine-readable format required (≥60%)</option>
+        <option value="full">Full — licence declaration required (≥80%)</option>
+    </select>
+</div>
+        <div class="configurable-block">
             <label>Custom vocabularies to check:</label>
             <div class="hint">
                 Add vocabulary name + keywords to detect in metadata.
@@ -829,6 +843,8 @@ async function saveProfile() {
             custom_identifiers: customIdentifiers,
             required_metadata_fields: activeMetadata,
             custom_metadata_fields: customMetadata,
+            min_vocab_fairness_level:
+            document.getElementById('min-vocab-level').value,
             check_discoverability: document.getElementById(
                 'check-discoverability').checked,
             accepted_formats: activeFormats,
@@ -941,6 +957,8 @@ document.getElementById('check-discoverability').checked =
     profile.check_discoverability !== false;
 document.getElementById('require-related').checked =
     profile.require_related_resources === true;
+document.getElementById('min-vocab-level').value =
+    profile.min_vocab_fairness_level || 'none';
 
 renderAll();
 validateProfile();

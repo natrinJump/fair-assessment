@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from app.services.vocabulary_service import assess_vocab_fairness
 from contextlib import asynccontextmanager
 from app.db import create_db
 from app.services.retriever import fetch_by_doi
@@ -15,6 +16,7 @@ from app.services.history_service import (
     save_assessment, get_history_by_doi, get_all_history,
     get_assessment_by_id, delete_assessment
 )
+
 
 def get_custom_fields_for_profile(profile_name: str) -> list:
     profile_data = get_profile_by_domain(profile_name)
@@ -219,6 +221,10 @@ def normalize_by_source(raw: dict, doi: str, custom_fields: list = None):
     else:
         return normalize_generic(raw, doi)
     
+def load_profile_obj(profile_name: str):
+    from app.services.evaluator import load_profile
+    return load_profile(profile_name)
+    
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db()
@@ -256,8 +262,12 @@ async def assess(doi: str, profile: str = "generic"):
         raw = await fetch_by_doi(doi)
         custom_fields = get_custom_fields_for_profile(profile)
         normalized = normalize_by_source(raw, doi, custom_fields)
-        report = run_assessment(normalized, profile)
-        # removed save_assessment — history saved locally in browser
+
+        # run vocabulary FAIR check before assessment
+        loaded_profile = load_profile_obj(profile)
+        vocab_fairness = await assess_vocab_fairness(loaded_profile)
+
+        report = run_assessment(normalized, profile, vocab_fairness=vocab_fairness)
         return report
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -272,6 +282,11 @@ async def assess_from_metadata(
     try:
         from app.services.normalizer import normalize_from_dict
         normalized = normalize_from_dict(data, profile)
+
+        # run vocabulary FAIR check before assessment
+        loaded_profile = load_profile_obj(profile)
+        vocab_fairness = await assess_vocab_fairness(loaded_profile)
+
         report = run_assessment(normalized, profile)
         return report
     except ValueError as e:

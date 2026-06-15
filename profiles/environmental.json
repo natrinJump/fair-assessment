@@ -20,5 +20,6 @@
   "accepted_licenses": ["cc-by", "cc0"],
   "required_license": "CC-BY",
   "required_provenance_fields": ["creator", "provenance_date"],
-  "community_standard": "CF Conventions"
+  "community_standard": "CF Conventions",
+  "min_vocab_fairness_level": "standard"
 }
