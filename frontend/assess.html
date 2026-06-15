@@ -372,6 +372,34 @@ function parseTurtle(text) {
     }
 
     if (!result.identifier) result.identifier = 'uploaded-turtle-file';
+    // extract declared namespace prefixes as vocabulary indicators
+    var namespaceMap = {
+        'dcterms': ['Dublin Core', 'dcterms'],
+        'dc:': ['Dublin Core', 'dc'],
+        'dcat:': ['DCAT', 'dcat'],
+        'skos:': ['SKOS', 'skos'],
+        'schema:': ['schema.org', 'schema'],
+        'foaf:': ['FOAF', 'foaf'],
+        'prov:': ['PROV', 'prov'],
+        'owl:': ['OWL', 'owl']
+    };
+
+    var detectedVocabs = [];
+    var textLower = text.toLowerCase();
+    Object.keys(namespaceMap).forEach(function(prefix) {
+        if (textLower.indexOf('@prefix ' + prefix) !== -1 ||
+            textLower.indexOf(prefix + ' ') !== -1) {
+            detectedVocabs = detectedVocabs.concat(namespaceMap[prefix]);
+        }
+    });
+
+    if (detectedVocabs.length > 0) {
+        // deduplicate
+        var unique = detectedVocabs.filter(function(v, i) {
+            return detectedVocabs.indexOf(v) === i;
+        });
+        result.detected_vocabularies = unique.join(', ');
+    }
 
     return result;
 }

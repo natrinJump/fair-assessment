@@ -401,6 +401,10 @@ def _normalize_json_upload(data: dict, identifier: str,
         if val:
             custom[field] = str(val)
 
+    # include detected vocabulary prefixes from TTL/RDF parsing
+    if data.get("detected_vocabularies"):
+        custom["_detected_vocabularies"] = data["detected_vocabularies"]
+        
     core = CoreMetadata(
         identifier=str(identifier),
         title=str(title) if title else None,
