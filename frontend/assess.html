@@ -13,24 +13,15 @@
             font-size: 0.85rem;
             font-weight: 500;
         }
-        .tab-btn.active {
-            background: #1a73e8;
-            color: white;
-        }
-        .tab-btn.inactive {
-            background: white;
-            color: #1a73e8;
-        }
+        .tab-btn.active { background: #1a73e8; color: white; }
+        .tab-btn.inactive { background: white; color: #1a73e8; }
         .input-group {
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
-        .input-row {
-            display: flex;
-            gap: 0.75rem;
-        }
+        .input-row { display: flex; gap: 0.75rem; }
         .input-row input[type="text"] {
             flex: 1;
             min-width: 0;
@@ -65,55 +56,46 @@
     <div class="card">
         <h2>Run Assessment</h2>
         <div class="input-group">
-    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem">
-        <button type="button" class="tab-btn active" id="tab-doi"
-            onclick="switchTab('doi')">
-            Enter DOI / URL
-        </button>
-        <button type="button" class="tab-btn inactive" id="tab-file"
-            onclick="switchTab('file')">
-            Upload Metadata File
-        </button>
-    </div>
 
-    <div id="panel-doi">
-        <div class="input-row">
-            <input type="text" id="doi-input" list="doi-suggestions"
-                placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
-            <datalist id="doi-suggestions"></datalist>
-            <select id="profile-select"></select>
-            <button type="button" class="btn btn-primary"
-                onclick="runAssessment()">Run Assessment</button>
-        </div>
-    </div>
+            <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
+                <button type="button" class="tab-btn active" id="tab-doi"
+                    onclick="switchTab('doi')">
+                    Enter DOI / URL
+                </button>
+                <button type="button" class="tab-btn inactive" id="tab-file"
+                    onclick="switchTab('file')">
+                    Upload Metadata File
+                </button>
+            </div>
 
-    <div id="panel-file" style="display:none">
-        <div class="input-row">
-            <input type="file" id="file-input"
-                accept=".json,.jsonld,.xml"
-                style="flex:1;padding:0.5rem;border:1px solid #ddd;
-                border-radius:6px;font-size:0.875rem">
-            <select id="profile-select-file"></select>
-            <button type="button" class="btn btn-primary"
-                onclick="runFileAssessment()">
-                Run Assessment
-            </button>
+            <div id="panel-doi">
+                <div class="input-row">
+                    <input type="text" id="doi-input" list="doi-suggestions"
+                        placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
+                    <datalist id="doi-suggestions"></datalist>
+                    <select id="profile-select"></select>
+                    <button type="button" class="btn btn-primary"
+                        onclick="runAssessment()">Run Assessment</button>
+                </div>
+            </div>
+
+            <div id="panel-file" style="display:none">
+                <div class="input-row">
+                    <input type="file" id="file-input"
+                        accept=".json,.jsonld,.xml,.rdf"
+                        style="flex:1;padding:0.5rem;border:1px solid #ddd;
+                        border-radius:6px;font-size:0.875rem">
+                    <select id="profile-select-file"></select>
+                    <button type="button" class="btn btn-primary"
+                        onclick="runFileAssessment()">Run Assessment</button>
+                </div>
+                <div style="font-size:0.78rem;color:#888;margin-top:0.35rem">
+                    Accepted formats: DataCite JSON (.json), schema.org JSON-LD (.jsonld),
+                    DataCite XML (.xml), RDF/XML (.rdf). Other file types are not supported.
+                </div>
+            </div>
+
         </div>
-        <div style="font-size:0.78rem;color:#888;margin-top:0.35rem">
-            Supported: DataCite JSON, schema.org JSON-LD (.json, .jsonld),
-            DataCite XML (.xml)
-        </div>
-    </div>
-</div>
-    <div class="input-row">
-        <input type="text" id="doi-input" list="doi-suggestions"
-            placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
-        <datalist id="doi-suggestions"></datalist>
-        <select id="profile-select"></select>
-        <button type="button" class="btn btn-primary"
-            onclick="runAssessment()">Run Assessment</button>
-    </div>
-</div>
         <div id="message-area"></div>
     </div>
 
@@ -146,17 +128,24 @@
                 </div>
             </div>
 
-            <div id="maturity-box" style="display:none;margin-bottom:1rem;padding:0.75rem 1rem;border-radius:6px;border-left:4px solid #1a73e8;background:#f0f7ff">
-    <div style="font-size:0.8rem;color:#666;margin-bottom:2px">Maturity Level</div>
-    <div id="maturity-level" style="font-size:1rem;font-weight:700;color:#1a73e8"></div>
-    <div id="maturity-desc" style="font-size:0.8rem;color:#555;margin-top:4px"></div>
-</div>
+            <div id="maturity-box" style="display:none;margin-bottom:1rem;
+                padding:0.75rem 1rem;border-radius:6px;
+                border-left:4px solid #1a73e8;background:#f0f7ff">
+                <div style="font-size:0.8rem;color:#666;margin-bottom:2px">
+                    Maturity Level
+                </div>
+                <div id="maturity-level"
+                    style="font-size:1rem;font-weight:700;color:#1a73e8">
+                </div>
+                <div id="maturity-desc"
+                    style="font-size:0.8rem;color:#555;margin-top:4px">
+                </div>
+            </div>
 
-<h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
-    Details:
-</h3>
-<div id="metric-results"></div>
-
+            <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
+                Details:
+            </h3>
+            <div id="metric-results"></div>
 
             <hr class="section-divider">
             <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
@@ -176,19 +165,26 @@
 
 <script src="app.js"></script>
 <script>
-let lastReport = null;
+var lastReport = null;
+
+function switchTab(tab) {
+    var isDoi = tab === 'doi';
+    document.getElementById('panel-doi').style.display = isDoi ? 'block' : 'none';
+    document.getElementById('panel-file').style.display = isDoi ? 'none' : 'block';
+    document.getElementById('tab-doi').className = 'tab-btn ' + (isDoi ? 'active' : 'inactive');
+    document.getElementById('tab-file').className = 'tab-btn ' + (isDoi ? 'inactive' : 'active');
+}
 
 async function loadProfiles() {
     try {
-        const profiles = await apiFetch('/profiles');
-        const options = profiles.map(p =>
-            `<option value="${p.domain}">${p.name}</option>`
-        ).join('');
+        var profiles = await apiFetch('/profiles');
+        var options = profiles.map(function(p) {
+            return '<option value="' + p.domain + '">' + p.name + '</option>';
+        }).join('');
         document.getElementById('profile-select').innerHTML = options;
-        const fileSelect = document.getElementById('profile-select-file');
+        var fileSelect = document.getElementById('profile-select-file');
         if (fileSelect) fileSelect.innerHTML = options;
-        const saved = JSON.parse(
-            localStorage.getItem('selectedProfile') || '{}');
+        var saved = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
         if (saved.domain) {
             document.getElementById('profile-select').value = saved.domain;
             if (fileSelect) fileSelect.value = saved.domain;
@@ -198,20 +194,23 @@ async function loadProfiles() {
     }
 }
 
-async function loadPreviousDOIs() {
+function loadPreviousDOIs() {
     try {
-        const history = getLocalHistory();
-        const dois = [...new Set(history.map(h => h.doi))];
-        const datalist = document.getElementById('doi-suggestions');
-        datalist.innerHTML = dois.map(doi =>
-            `<option value="${doi}">`
-        ).join('');
+        var history = getLocalHistory();
+        var dois = [];
+        history.forEach(function(h) {
+            if (dois.indexOf(h.doi) === -1) dois.push(h.doi);
+        });
+        var datalist = document.getElementById('doi-suggestions');
+        datalist.innerHTML = dois.map(function(doi) {
+            return '<option value="' + doi + '">';
+        }).join('');
     } catch(e) {}
 }
 
 async function runAssessment() {
-    const doi = document.getElementById('doi-input').value.trim();
-    const profile = document.getElementById('profile-select').value;
+    var doi = document.getElementById('doi-input').value.trim();
+    var profile = document.getElementById('profile-select').value;
 
     if (!doi) {
         showError('message-area', 'Please enter a DOI, Handle, or URL');
@@ -223,16 +222,13 @@ async function runAssessment() {
     document.getElementById('results-container').style.display = 'none';
 
     try {
-        const report = await apiFetch(
-            `/assess/${doi}?profile=${encodeURIComponent(profile)}`
+        var report = await apiFetch(
+            '/assess/' + doi + '?profile=' + encodeURIComponent(profile)
         );
         lastReport = report;
 
-        // get profile snapshot for history
-        const profiles = await apiFetch('/profiles');
-        const profileData = profiles.find(p => p.domain === profile);
-
-        // save to localStorage
+        var profiles = await apiFetch('/profiles');
+        var profileData = profiles.find(function(p) { return p.domain === profile; });
         addToLocalHistory(report, profileData || {});
 
         document.getElementById('message-area').innerHTML = '';
@@ -241,90 +237,6 @@ async function runAssessment() {
     } catch(e) {
         showError('message-area', 'Assessment failed: ' + e.message);
     }
-}
-
-function renderReport(report) {
-    document.getElementById('results-container').style.display = 'block';
-    document.getElementById('result-doi').textContent =
-        'Dataset: ' + report.doi + ' | Profile: ' + report.profile_name;
-
-    document.getElementById('score-overall').textContent =
-        formatScore(report.overall_score);
-    document.getElementById('score-f').textContent =
-        formatScore(report.f_score);
-    document.getElementById('score-a').textContent =
-        formatScore(report.a_score);
-    document.getElementById('score-i').textContent =
-        formatScore(report.i_score);
-    document.getElementById('score-r').textContent =
-        formatScore(report.r_score);
-
-    if (report.maturity_level) {
-        const colors = {
-            'Advanced': '#0f9d58', 'Intermediate': '#1a73e8',
-            'Initial': '#f4b400', 'Incomplete': '#9e9e9e'
-        };
-        const backgrounds = {
-            'Advanced': '#e6f4ea', 'Intermediate': '#e8f0fe',
-            'Initial': '#fef7e0', 'Incomplete': '#f5f5f5'
-        };
-        const box = document.getElementById('maturity-box');
-        const level = document.getElementById('maturity-level');
-        const desc = document.getElementById('maturity-desc');
-        box.style.display = 'block';
-        box.style.borderLeftColor = colors[report.maturity_level] || '#1a73e8';
-        box.style.background = backgrounds[report.maturity_level] || '#f0f7ff';
-        level.textContent = report.maturity_level;
-        level.style.color = colors[report.maturity_level] || '#1a73e8';
-        desc.textContent = report.maturity_description;
-    }
-
-    document.getElementById('metric-results').innerHTML =
-        report.results.map(r => `
-            <div class="metric-result ${r.status}">
-                <div class="metric-header">
-                    <span class="metric-id">${r.metric_id}</span>
-                    <span class="metric-desc">${r.description}</span>
-                    <span class="badge ${r.status}">${r.status}</span>
-                    <span class="badge ${r.priority}">${r.priority}</span>
-                </div>
-                ${r.evidence
-                    ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
-                    : ''}
-                ${r.recommendation
-                    ? `<div class="metric-recommendation">
-                        → ${r.recommendation}</div>`
-                    : ''}
-            </div>
-        `).join('');
-
-    const recs = report.results.filter(r => r.recommendation);
-    const recContainer = document.getElementById('recommendations');
-    if (recs.length === 0) {
-        recContainer.innerHTML =
-            '<p style="font-size:0.875rem;color:#0f9d58">' +
-            'No recommendations — dataset meets all profile criteria.</p>';
-    } else {
-        recContainer.innerHTML = recs.map(r =>
-            `<div style="font-size:0.875rem;margin-bottom:0.5rem;
-                padding:0.5rem;background:#fafafa;border-radius:4px;
-                border-left:3px solid #db4437">
-                <strong>${r.metric_id}:</strong> ${r.recommendation}
-            </div>`
-        ).join('');
-    }
-}
-
-function switchTab(tab) {
-    var isDoi = tab === 'doi';
-    document.getElementById('panel-doi').style.display =
-        isDoi ? 'block' : 'none';
-    document.getElementById('panel-file').style.display =
-        isDoi ? 'none' : 'block';
-    document.getElementById('tab-doi').className =
-        'tab-btn ' + (isDoi ? 'active' : 'inactive');
-    document.getElementById('tab-file').className =
-        'tab-btn ' + (isDoi ? 'inactive' : 'active');
 }
 
 function parseXML(xmlText) {
@@ -337,30 +249,25 @@ function parseXML(xmlText) {
     }
 
     var identifier = getText('identifier') || getText('doi') || 'unknown';
-    var title = getText('title');
-    var description = getText('description');
-    var creator = getText('creatorName') || getText('creator');
     var license = null;
     var rightsEl = doc.getElementsByTagName('rights')[0];
     if (rightsEl) {
-        license = rightsEl.getAttribute('rightsURI') ||
-                  rightsEl.textContent.trim();
+        license = rightsEl.getAttribute('rightsURI') || rightsEl.textContent.trim();
     }
     var formats = [];
     var formatEls = doc.getElementsByTagName('format');
     for (var i = 0; i < formatEls.length; i++) {
         formats.push(formatEls[i].textContent.trim());
     }
-    var date = getText('publicationYear') || getText('date');
 
     return {
         identifier: identifier,
-        title: title,
-        description: description,
-        creator: creator,
+        title: getText('title'),
+        description: getText('description'),
+        creator: getText('creatorName') || getText('creator'),
         license: license,
         formats: formats,
-        provenance_date: date,
+        provenance_date: getText('publicationYear') || getText('date'),
         access_url: identifier.startsWith('10.')
             ? 'https://doi.org/' + identifier : null
     };
@@ -373,13 +280,13 @@ function parseJSON(jsonData) {
         var titles = attrs.titles || [];
         var creators = attrs.creators || [];
         var rights = attrs.rightsList || [];
+        var descs = attrs.descriptions || [];
         return {
             identifier: attrs.doi || 'unknown',
             title: titles[0] ? titles[0].title : null,
-            description: attrs.descriptions && attrs.descriptions[0]
-                ? attrs.descriptions[0].description : null,
+            description: descs[0] ? descs[0].description : null,
             creator: creators[0] ? creators[0].name : null,
-            license: rights[0] ? rights[0].rightsUri : null,
+            license: rights[0] ? (rights[0].rightsUri || rights[0].rightsURI) : null,
             formats: attrs.formats || [],
             provenance_date: attrs.published || null,
             access_url: 'https://doi.org/' + (attrs.doi || '')
@@ -390,40 +297,34 @@ function parseJSON(jsonData) {
     if (jsonData['@type'] || jsonData['@context']) {
         var creators2 = jsonData.creator || jsonData.author || [];
         if (!Array.isArray(creators2)) creators2 = [creators2];
-        var license = jsonData.license;
-        if (typeof license === 'object') license = license['@id'] || license.url;
+        var lic = jsonData.license;
+        if (typeof lic === 'object' && lic !== null) lic = lic['@id'] || lic.url;
         var dist = jsonData.distribution || [];
         if (!Array.isArray(dist)) dist = [dist];
-        var formats = dist.map(function(d) {
+        var fmts = dist.map(function(d) {
             return d.encodingFormat || d.fileFormat || '';
         }).filter(Boolean);
-
         return {
             identifier: jsonData.identifier || jsonData['@id'] || 'unknown',
             title: jsonData.name || jsonData.headline || null,
             description: jsonData.description || null,
-            creator: creators2[0]
-                ? (creators2[0].name || creators2[0]) : null,
-            license: license || null,
-            formats: formats,
-            provenance_date: jsonData.datePublished ||
-                             jsonData.dateCreated || null,
+            creator: creators2[0] ? (creators2[0].name || creators2[0]) : null,
+            license: lic || null,
+            formats: fmts,
+            provenance_date: jsonData.datePublished || jsonData.dateCreated || null,
             access_url: jsonData.url || jsonData['@id'] || null
         };
     }
 
-    // generic flat JSON — use as-is
+    // generic flat JSON
     return {
-        identifier: jsonData.identifier || jsonData.doi ||
-                    jsonData.id || 'unknown',
+        identifier: jsonData.identifier || jsonData.doi || jsonData.id || 'unknown',
         title: jsonData.title || jsonData.name || null,
         description: jsonData.description || jsonData.abstract || null,
         creator: jsonData.creator || jsonData.author || null,
         license: jsonData.license || jsonData.rights || null,
-        formats: jsonData.formats || jsonData.format
-            ? [jsonData.format] : [],
-        provenance_date: jsonData.publicationYear ||
-                         jsonData.datePublished || null,
+        formats: jsonData.formats ? jsonData.formats : (jsonData.format ? [jsonData.format] : []),
+        provenance_date: jsonData.publicationYear || jsonData.datePublished || null,
         access_url: jsonData.url || null
     };
 }
@@ -439,6 +340,15 @@ async function runFileAssessment() {
 
     var file = fileInput.files[0];
     var filename = file.name.toLowerCase();
+    var allowedExtensions = ['.json', '.jsonld', '.xml', '.rdf'];
+    var fileExtension = filename.substring(filename.lastIndexOf('.'));
+
+    if (allowedExtensions.indexOf(fileExtension) === -1) {
+        showError('message-area',
+            'Unsupported file format "' + fileExtension + '". ' +
+            'Please upload one of: ' + allowedExtensions.join(', '));
+        return;
+    }
 
     document.getElementById('message-area').innerHTML =
         '<div class="loading">Parsing file and running assessment...</div>';
@@ -448,7 +358,7 @@ async function runFileAssessment() {
         var text = await file.text();
         var parsed;
 
-        if (filename.endswith('.xml')) {
+        if (fileExtension === '.xml' || fileExtension === '.rdf') {
             parsed = parseXML(text);
         } else {
             try {
@@ -456,15 +366,20 @@ async function runFileAssessment() {
                 parsed = parseJSON(jsonData);
             } catch(e) {
                 showError('message-area',
-                    'Could not parse file — make sure it is valid JSON or XML');
+                    'Could not parse file — please make sure it is valid JSON or XML. Error: ' + e.message);
                 return;
             }
         }
 
-        // send parsed metadata to backend
+        if (!parsed.title && !parsed.identifier) {
+            showError('message-area',
+                'Could not extract metadata from file. ' +
+                'Make sure the file contains valid DataCite JSON, schema.org JSON-LD, or DataCite XML.');
+            return;
+        }
+
         var response = await fetch(
-            API + '/assess/metadata?profile=' +
-            encodeURIComponent(profile),
+            API + '/assess/metadata?profile=' + encodeURIComponent(profile),
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -480,11 +395,8 @@ async function runFileAssessment() {
         var report = await response.json();
         lastReport = report;
 
-        // save to local history
         var profiles = await apiFetch('/profiles');
-        var profileData = profiles.find(function(p) {
-            return p.domain === profile;
-        });
+        var profileData = profiles.find(function(p) { return p.domain === profile; });
         addToLocalHistory(report, profileData || {});
 
         document.getElementById('message-area').innerHTML = '';
@@ -495,22 +407,81 @@ async function runFileAssessment() {
     }
 }
 
+function renderReport(report) {
+    document.getElementById('results-container').style.display = 'block';
+    document.getElementById('result-doi').textContent =
+        'Dataset: ' + report.doi + ' | Profile: ' + report.profile_name;
+
+    document.getElementById('score-overall').textContent = formatScore(report.overall_score);
+    document.getElementById('score-f').textContent = formatScore(report.f_score);
+    document.getElementById('score-a').textContent = formatScore(report.a_score);
+    document.getElementById('score-i').textContent = formatScore(report.i_score);
+    document.getElementById('score-r').textContent = formatScore(report.r_score);
+
+    if (report.maturity_level) {
+        var colors = {
+            'Advanced': '#0f9d58', 'Intermediate': '#1a73e8',
+            'Initial': '#f4b400', 'Incomplete': '#9e9e9e'
+        };
+        var backgrounds = {
+            'Advanced': '#e6f4ea', 'Intermediate': '#e8f0fe',
+            'Initial': '#fef7e0', 'Incomplete': '#f5f5f5'
+        };
+        var box = document.getElementById('maturity-box');
+        var level = document.getElementById('maturity-level');
+        var desc = document.getElementById('maturity-desc');
+        box.style.display = 'block';
+        box.style.borderLeftColor = colors[report.maturity_level] || '#1a73e8';
+        box.style.background = backgrounds[report.maturity_level] || '#f0f7ff';
+        level.textContent = report.maturity_level;
+        level.style.color = colors[report.maturity_level] || '#1a73e8';
+        desc.textContent = report.maturity_description;
+    }
+
+    document.getElementById('metric-results').innerHTML =
+        report.results.map(function(r) {
+            return '<div class="metric-result ' + r.status + '">' +
+                '<div class="metric-header">' +
+                '<span class="metric-id">' + r.metric_id + '</span>' +
+                '<span class="metric-desc">' + r.description + '</span>' +
+                '<span class="badge ' + r.status + '">' + r.status + '</span>' +
+                '<span class="badge ' + r.priority + '">' + r.priority + '</span>' +
+                '</div>' +
+                (r.evidence ? '<div class="metric-evidence">&#10003; ' + r.evidence + '</div>' : '') +
+                (r.recommendation ? '<div class="metric-recommendation">&rarr; ' + r.recommendation + '</div>' : '') +
+                '</div>';
+        }).join('');
+
+    var recs = report.results.filter(function(r) { return r.recommendation; });
+    var recContainer = document.getElementById('recommendations');
+    if (recs.length === 0) {
+        recContainer.innerHTML =
+            '<p style="font-size:0.875rem;color:#0f9d58">' +
+            'No recommendations — dataset meets all profile criteria.</p>';
+    } else {
+        recContainer.innerHTML = recs.map(function(r) {
+            return '<div style="font-size:0.875rem;margin-bottom:0.5rem;' +
+                'padding:0.5rem;background:#fafafa;border-radius:4px;' +
+                'border-left:3px solid #db4437">' +
+                '<strong>' + r.metric_id + ':</strong> ' + r.recommendation +
+                '</div>';
+        }).join('');
+    }
+}
+
 function downloadReport() {
     if (!lastReport) return;
-    const blob = new Blob(
-        [JSON.stringify(lastReport, null, 2)],
-        { type: 'application/json' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    var blob = new Blob([JSON.stringify(lastReport, null, 2)],
+        { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
     a.href = url;
-    a.download = 'fair-report-' +
-        lastReport.doi.replace(/\//g, '-') + '.json';
+    a.download = 'fair-report-' + lastReport.doi.replace(/\//g, '-') + '.json';
     a.click();
 }
 
 // prefill DOI if coming from history page
-const prefill = localStorage.getItem('prefillDoi');
+var prefill = localStorage.getItem('prefillDoi');
 if (prefill) {
     document.getElementById('doi-input').value = prefill;
     localStorage.removeItem('prefillDoi');
