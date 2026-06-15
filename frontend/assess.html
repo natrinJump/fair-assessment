@@ -144,7 +144,7 @@ async function loadProfiles() {
 
 async function loadPreviousDOIs() {
     try {
-        const history = await apiFetch('/history');
+        const history = getLocalHistory();
         const dois = [...new Set(history.map(h => h.doi))];
         const datalist = document.getElementById('doi-suggestions');
         datalist.innerHTML = dois.map(doi =>
@@ -168,9 +168,17 @@ async function runAssessment() {
 
     try {
         const report = await apiFetch(
-            `/assess/${encodeURIComponent(doi)}?profile=${encodeURIComponent(profile)}`
+            `/assess/${doi}?profile=${encodeURIComponent(profile)}`
         );
         lastReport = report;
+
+        // get profile snapshot for history
+        const profiles = await apiFetch('/profiles');
+        const profileData = profiles.find(p => p.domain === profile);
+
+        // save to localStorage
+        addToLocalHistory(report, profileData || {});
+
         document.getElementById('message-area').innerHTML = '';
         renderReport(report);
         loadPreviousDOIs();

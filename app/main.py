@@ -256,13 +256,7 @@ async def assess(doi: str, profile: str = "generic"):
         custom_fields = get_custom_fields_for_profile(profile)
         normalized = normalize_by_source(raw, doi, custom_fields)
         report = run_assessment(normalized, profile)
-
-        # save profile snapshot with assessment
-        profile_data = get_profile_by_domain(profile)
-        if not profile_data:
-            profile_data = get_profile_by_name(profile)
-
-        save_assessment(report, profile_snapshot=profile_data)
+        # removed save_assessment — history saved locally in browser
         return report
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
