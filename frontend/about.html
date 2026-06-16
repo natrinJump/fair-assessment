@@ -5,145 +5,117 @@
     <title>About - FAIR Assessment Tool</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .info-card {
-            background: white;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .info-card h2 {
-            font-size: 1.1rem;
+        .about-section { margin-bottom: 2rem; }
+        .about-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
             color: #1a73e8;
-            margin-bottom: 1rem;
-        }
-        .info-card h3 {
-            font-size: 0.95rem;
-            color: #333;
-            margin: 1rem 0 0.5rem;
-        }
-        .info-card p {
-            font-size: 0.875rem;
-            color: #555;
-            line-height: 1.6;
             margin-bottom: 0.75rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid #e8f0fe;
         }
-        .priority-table {
+        .about-section p {
+            font-size: 0.9rem;
+            color: #444;
+            line-height: 1.7;
+            margin-bottom: 0.5rem;
+        }
+        .level-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.875rem;
-            margin-top: 0.75rem;
+            margin-top: 0.5rem;
         }
-        .priority-table th {
+        .level-table th {
             text-align: left;
-            padding: 0.6rem 0.75rem;
-            background: #f0f7ff;
-            color: #1a73e8;
+            padding: 0.5rem 0.75rem;
+            background: #f1f3f4;
             font-weight: 600;
-            border-bottom: 2px solid #e0e0e0;
+            color: #333;
+            font-size: 0.8rem;
         }
-        .priority-table td {
-            padding: 0.6rem 0.75rem;
+        .level-table td {
+            padding: 0.5rem 0.75rem;
             border-bottom: 1px solid #f0f0f0;
             vertical-align: top;
-            color: #555;
         }
-        .priority-table tr:last-child td {
-            border-bottom: none;
-        }
-        .badge-essential {
-            background: #e8f0fe;
-            color: #1a73e8;
-            font-size: 0.75rem;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .badge-important {
-            background: #f3e8fd;
-            color: #9c27b0;
-            font-size: 0.75rem;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .badge-useful {
-            background: #f1f3f4;
-            color: #666;
-            font-size: 0.75rem;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .score-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-            margin-top: 0.75rem;
-        }
-        .score-table th {
-            text-align: left;
-            padding: 0.6rem 0.75rem;
-            background: #f0f7ff;
-            color: #1a73e8;
-            font-weight: 600;
-            border-bottom: 2px solid #e0e0e0;
-        }
-        .score-table td {
-            padding: 0.6rem 0.75rem;
-            border-bottom: 1px solid #f0f0f0;
-            color: #555;
-        }
-        .score-table tr:last-child td { border-bottom: none; }
+        .level-table tr:last-child td { border-bottom: none; }
         .metric-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.8rem;
-            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
         }
         .metric-table th {
             text-align: left;
             padding: 0.5rem 0.75rem;
-            background: #f8f9fa;
-            color: #444;
+            background: #f1f3f4;
             font-weight: 600;
-            border-bottom: 2px solid #e0e0e0;
+            font-size: 0.8rem;
         }
         .metric-table td {
-            padding: 0.5rem 0.75rem;
+            padding: 0.45rem 0.75rem;
             border-bottom: 1px solid #f0f0f0;
-            color: #555;
+            font-size: 0.82rem;
             vertical-align: top;
         }
         .metric-table tr:last-child td { border-bottom: none; }
-        .ref-box {
-            background: #f8f9fa;
-            border-left: 4px solid #1a73e8;
-            padding: 0.75rem 1rem;
-            border-radius: 0 6px 6px 0;
-            font-size: 0.8rem;
-            color: #555;
-            margin-top: 0.75rem;
+        .badge-essential { background:#fce8e6;color:#c5221f;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:600 }
+        .badge-important  { background:#fef7e0;color:#b06000;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:600 }
+        .badge-useful     { background:#e8f0fe;color:#1557b0;padding:1px 7px;border-radius:10px;font-size:0.72rem;font-weight:600 }
+        .thesis-banner {
+            background: linear-gradient(135deg, #e8f0fe 0%, #f0f4ff 100%);
+            border: 1px solid #aec6f6;
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1.25rem;
+            align-items: flex-start;
         }
-        .maturity-row { display: flex; gap: 1rem; margin-top: 0.75rem; }
-        .maturity-item {
-            flex: 1;
-            padding: 0.75rem;
-            border-radius: 6px;
-            text-align: center;
-            font-size: 0.8rem;
+        .thesis-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+            margin-top: 0.15rem;
         }
-        .maturity-item .level {
+        .thesis-text h3 {
+            font-size: 1rem;
             font-weight: 700;
-            font-size: 0.9rem;
-            margin-bottom: 4px;
+            color: #1557b0;
+            margin: 0 0 0.35rem;
+            border: none;
+            padding: 0;
         }
-        .maturity-item .range {
-            font-size: 0.75rem;
-            opacity: 0.8;
+        .thesis-text p {
+            font-size: 0.875rem;
+            color: #444;
+            margin: 0;
+            line-height: 1.6;
+        }
+        .thesis-text .meta {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.35rem;
+        }
+        .ref-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .ref-list li {
+            font-size: 0.83rem;
+            color: #444;
+            padding: 0.4rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            line-height: 1.5;
+        }
+        .ref-list li:last-child { border-bottom: none; }
+        .ref-num {
+            display: inline-block;
+            width: 1.5rem;
+            color: #1a73e8;
+            font-weight: 600;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -153,329 +125,211 @@
     <h1>FAIR Assessment Tool</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
-    <a href="about.html"
-        style="font-weight:600;border-bottom:2px solid white;
-        padding-bottom:2px">About</a>
+    <a href="compare.html">Compare</a>
+    <a href="about.html">About</a>
 </nav>
 
 <div class="container">
+    <div class="card">
 
-    <div class="info-card">
-        <h2>About This Tool</h2>
-        <p>
-            This is a configurable FAIR assessment framework that evaluates
-            research datasets against the FAIR principles — Findable,
-            Accessible, Interoperable, and Reusable. Unlike existing tools
-            that apply fixed metrics, this tool allows users and communities
-            to define their own evaluation profiles tailored to their
-            domain-specific requirements.
-        </p>
-        <p>
-            Users can configure which identifier types, metadata fields,
-            file formats, vocabularies, licenses, and provenance fields
-            are required for their domain. The tool then evaluates a
-            dataset against these criteria and produces a detailed report
-            with scores, evidence, and actionable recommendations.
-        </p>
-    </div>
-
-    <div class="info-card">
-        <h2>Indicator Priority Levels</h2>
-        <p>
-            Each FAIR metric is assigned a priority level based on the
-            <strong>FAIR Data Maturity Model</strong> (Bahim et al., 2020).
-            These levels indicate the relative importance of each indicator
-            in achieving FAIRness.
-        </p>
-
-        <table class="priority-table">
-            <tr>
-                <th style="width:120px">Priority</th>
-                <th>Definition</th>
-            </tr>
-            <tr>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>
-                    Addresses an aspect of utmost importance to achieve
-                    FAIRness under most circumstances. FAIRness would be
-                    practically impossible to achieve if this indicator
-                    were not satisfied.
-                </td>
-            </tr>
-            <tr>
-                <td><span class="badge-important">Important</span></td>
-                <td>
-                    Addresses an aspect that might not be of the utmost
-                    importance under specific circumstances, but its
-                    satisfaction would substantially increase FAIRness.
-                </td>
-            </tr>
-            <tr>
-                <td><span class="badge-useful">Useful</span></td>
-                <td>
-                    Addresses an aspect that is nice-to-have but is not
-                    necessarily indispensable for achieving FAIRness.
-                </td>
-            </tr>
-        </table>
-
-        <div class="ref-box">
-            <strong>Reference:</strong> Bahim, C., Casorrán-Amilburu, C.,
-            Dekkers, M., Herczog, E., Loozen, N., Repanas, K., Russell, K.,
-            &amp; Stall, S. (2020). The FAIR Data Maturity Model: An Approach
-            to Harmonise FAIR Assessments. <em>Data Science Journal</em>,
-            19, 41. https://doi.org/10.5334/dsj-2020-041
-        </div>
-    </div>
-
-    <div class="info-card">
-        <h2>Metric Weights</h2>
-        <p>
-            When calculating scores, each metric is weighted according to
-            its priority level. Essential metrics contribute more to the
-            final score than important or useful ones, reflecting their
-            relative importance in the FAIR Data Maturity Model.
-        </p>
-        <table class="score-table">
-            <tr>
-                <th>Priority</th>
-                <th>Weight</th>
-                <th>Effect on score</th>
-            </tr>
-            <tr>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>1.0</td>
-                <td>Full contribution to principle score</td>
-            </tr>
-            <tr>
-                <td><span class="badge-important">Important</span></td>
-                <td>0.75</td>
-                <td>75% contribution to principle score</td>
-            </tr>
-            <tr>
-                <td><span class="badge-useful">Useful</span></td>
-                <td>0.5</td>
-                <td>50% contribution to principle score</td>
-            </tr>
-        </table>
-        <p style="margin-top:0.75rem">
-            Each metric result also carries a status:
-            <strong>Pass</strong> = full weight,
-            <strong>Partial</strong> = 50% of weight,
-            <strong>Fail</strong> = 0.
-            The principle score (F, A, I, R) is the weighted average
-            of all metrics under that principle. The overall score is
-            the average of the four principle scores.
-        </p>
-        <p style="font-size:0.8rem;color:#888">
-            Note: Because profiles are configurable, scores reflect
-            FAIRness relative to the selected profile's requirements —
-            not a universal absolute measure. The same dataset may score
-            differently under different profiles. This is by design, as
-            different communities have different FAIR requirements.
-        </p>
-    </div>
-
-    <div class="info-card">
-        <h2>Maturity Levels</h2>
-        <p>
-            Overall scores are interpreted as maturity levels to give
-            users a qualitative sense of where their dataset stands
-            and what to focus on next.
-        </p>
-        <div class="maturity-row">
-            <div class="maturity-item"
-                style="background:#fce8e6;border:1px solid #db4437">
-                <div class="level" style="color:#db4437">Incomplete</div>
-                <div class="range">0 – 39%</div>
-                <div style="margin-top:6px;font-size:0.75rem;color:#555">
-                    Does not yet meet basic FAIR requirements
-                </div>
-            </div>
-            <div class="maturity-item"
-                style="background:#fef7e0;border:1px solid #f4b400">
-                <div class="level" style="color:#f4b400">Initial</div>
-                <div class="range">40 – 59%</div>
-                <div style="margin-top:6px;font-size:0.75rem;color:#555">
-                    Basic FAIR elements present but significant gaps remain
-                </div>
-            </div>
-            <div class="maturity-item"
-                style="background:#e8f0fe;border:1px solid #1a73e8">
-                <div class="level" style="color:#1a73e8">Intermediate</div>
-                <div class="range">60 – 79%</div>
-                <div style="margin-top:6px;font-size:0.75rem;color:#555">
-                    Core requirements met, notable gaps to address
-                </div>
-            </div>
-            <div class="maturity-item"
-                style="background:#e6f4ea;border:1px solid #0f9d58">
-                <div class="level" style="color:#0f9d58">Advanced</div>
-                <div class="range">80 – 100%</div>
-                <div style="margin-top:6px;font-size:0.75rem;color:#555">
-                    Strong FAIRness, focus on remaining gaps
-                </div>
+        <!-- Thesis credit banner -->
+        <div class="thesis-banner">
+            <div class="thesis-icon"></div>
+            <div class="thesis-text">
+                <h3>Configurable FAIR Assessment Tool</h3>
+                <p>
+                    This tool was designed and developed by
+                    <strong>Jump Srinualnad</strong> as part of a Master's thesis
+                    in the <strong>Computer Science</strong> programme
+                    at the <strong>University of Twente</strong>, Faculty of
+                    Electrical Engineering, Mathematics and Computer Science (EEMCS).
+                </p>
+                <p class="meta">
+                    Thesis supervised by dr. Luiz Olavo Bonino da Silva Santos and dr. Tiago Prince Sales · Academic year 2026–2027 ·
+                    <a href="https://github.com/natrinJump/fair-assessment"
+                       target="_blank" rel="noopener"
+                       style="color:#1a73e8">GitHub Repository</a>
+                </p>
             </div>
         </div>
-    </div>
 
-    <div class="info-card">
-        <h2>FAIR Metrics Reference</h2>
-        <p>
-            The following metrics are evaluated. Fixed metrics are
-            always evaluated regardless of profile configuration.
-            Configurable metrics adapt based on the selected profile.
-        </p>
-        <table class="metric-table">
-            <tr>
-                <th>ID</th>
-                <th>Principle</th>
-                <th>Description</th>
-                <th>Priority</th>
-                <th>Type</th>
-            </tr>
-            <tr>
-                <td><strong>F1</strong></td>
-                <td>Findable</td>
-                <td>Dataset has a globally unique persistent identifier</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>F2</strong></td>
-                <td>Findable</td>
-                <td>Rich metadata is provided to allow discovery</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>F3</strong></td>
-                <td>Findable</td>
-                <td>Metadata includes the identifier for the data</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Fixed</td>
-            </tr>
-            <tr>
-                <td><strong>F4</strong></td>
-                <td>Findable</td>
-                <td>Metadata is indexed in a searchable resource</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>A1</strong></td>
-                <td>Accessible</td>
-                <td>Metadata is retrievable via HTTP/HTTPS</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Fixed</td>
-            </tr>
-            <tr>
-                <td><strong>A1.1</strong></td>
-                <td>Accessible</td>
-                <td>Metadata uses a free and open standard protocol</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Fixed</td>
-            </tr>
-            <tr>
-                <td><strong>A1.2</strong></td>
-                <td>Accessible</td>
-                <td>Protocol supports authentication if data is restricted</td>
-                <td><span class="badge-useful">Useful</span></td>
-                <td>Fixed</td>
-            </tr>
-            <tr>
-                <td><strong>A2</strong></td>
-                <td>Accessible</td>
-                <td>Metadata persists even if data is no longer available</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Fixed</td>
-            </tr>
-            <tr>
-                <td><strong>I1</strong></td>
-                <td>Interoperable</td>
-                <td>Metadata uses a formal knowledge representation language</td>
-                <td><span class="badge-important">Important</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>I2</strong></td>
-                <td>Interoperable</td>
-                <td>Metadata uses FAIR-compliant vocabularies</td>
-                <td><span class="badge-important">Important</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>I3</strong></td>
-                <td>Interoperable</td>
-                <td>Metadata includes qualified references to other resources</td>
-                <td><span class="badge-important">Important</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>R1</strong></td>
-                <td>Reusable</td>
-                <td>Metadata has a plurality of accurate and relevant attributes</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>R1.1</strong></td>
-                <td>Reusable</td>
-                <td>Metadata includes a license for reuse</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>R1.2</strong></td>
-                <td>Reusable</td>
-                <td>Metadata includes provenance information</td>
-                <td><span class="badge-important">Important</span></td>
-                <td>Configurable</td>
-            </tr>
-            <tr>
-                <td><strong>R1.3</strong></td>
-                <td>Reusable</td>
-                <td>Metadata meets domain-relevant community standards</td>
-                <td><span class="badge-essential">Essential</span></td>
-                <td>Configurable</td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="info-card">
-        <h2>Important Notes on Score Interpretation</h2>
-        <p>
-            Scores should be interpreted as a <strong>process tool</strong>
-            for identifying weaknesses and guiding improvement — not as a
-            definitive ranking of dataset quality. As argued by Azevedo and
-            Dumontier (2020), absolute FAIRness is not achievable and
-            aggregated FAIR scores are not universally validated measures.
-        </p>
-        <p>
-            Because this tool is configurable, two datasets with the same
-            score under different profiles are not directly comparable.
-            Scores only have meaning in the context of the profile under
-            which they were evaluated.
-        </p>
-        <p>
-            Some metrics may fail due to repository limitations rather than
-            dataset quality issues. For example, vocabulary references (I2)
-            or domain-specific metadata fields (F2) may not be exposed
-            through a repository's API even if the dataset contains this
-            information. Recommendations should be read with this in mind.
-        </p>
-        <div class="ref-box">
-            <strong>References:</strong><br>
-            Bahim et al. (2020). The FAIR Data Maturity Model.
-            <em>Data Science Journal</em>, 19, 41.<br>
-            Azevedo, R. D. &amp; Dumontier, M. (2020). Considerations for
-            the Conduction and Interpretation of FAIRness Evaluations.
-            <em>Data Intelligence</em>, 2, 285–292.
+        <!-- What this tool does -->
+        <div class="about-section">
+            <h3>What This Tool Does</h3>
+            <p>
+                This tool automatically evaluates research datasets against the
+                <strong>FAIR principles</strong> (Findable, Accessible, Interoperable,
+                Reusable) and produces a scored, metric-level report with actionable
+                recommendations. Unlike fixed-criteria tools such as F-UJI and FOOPS!,
+                this tool supports <strong>configurable domain profiles</strong> — allowing
+                communities to declare which identifier types, metadata fields, file formats,
+                controlled vocabularies, and licencing requirements apply to their domain.
+                The same dataset assessed under an Agriculture profile and a Life Sciences
+                profile will receive different, contextually meaningful scores reflecting
+                each community's specific standards.
+            </p>
+            <p>
+                Metadata can be retrieved automatically from public repositories (DataCite,
+                Zenodo, PANGAEA, Dataverse, schema.org endpoints) using a DOI, Handle, or
+                ARK identifier, or supplied manually by uploading a metadata file in
+                DataCite JSON, schema.org JSON-LD, DataCite XML, RDF/XML, or RDF Turtle
+                format.
+            </p>
         </div>
-    </div>
 
+        <!-- Scoring -->
+        <div class="about-section">
+            <h3>How Scoring Works</h3>
+            <p>
+                Each of the fifteen FAIR metrics produces a result of
+                <strong>pass</strong>, <strong>partial</strong>, or <strong>fail</strong>.
+                Results are weighted by priority level, following the
+                FAIR Data Maturity Model [1]:
+            </p>
+            <table class="level-table">
+                <thead>
+                    <tr>
+                        <th>Priority</th>
+                        <th>Weight</th>
+                        <th>Pass earns</th>
+                        <th>Partial earns</th>
+                        <th>Fail earns</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge-essential">Essential</span></td>
+                        <td>1.0</td><td>1.0</td><td>0.5</td><td>0.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-important">Important</span></td>
+                        <td>0.75</td><td>0.75</td><td>0.375</td><td>0.0</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-useful">Useful</span></td>
+                        <td>0.5</td><td>0.5</td><td>0.25</td><td>0.0</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="margin-top:0.75rem">
+                Per-principle scores (F, A, I, R) are calculated as the ratio of
+                earned weight to total possible weight, expressed as a percentage.
+                The overall score is the unweighted average of the four principle scores.
+            </p>
+        </div>
+
+        <!-- Maturity levels -->
+        <div class="about-section">
+            <h3>Maturity Levels</h3>
+            <table class="level-table">
+                <thead>
+                    <tr><th>Level</th><th>Score range</th><th>Interpretation</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color:#c5221f;font-weight:600">Incomplete</td>
+                        <td>0 – 39%</td>
+                        <td>Core FAIR requirements are not met.</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#b06000;font-weight:600">Initial</td>
+                        <td>40 – 59%</td>
+                        <td>Basic FAIR requirements are partially satisfied.</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#1557b0;font-weight:600">Intermediate</td>
+                        <td>60 – 79%</td>
+                        <td>Most FAIR requirements are met with some gaps remaining.</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#137333;font-weight:600">Advanced</td>
+                        <td>80 – 100%</td>
+                        <td>Dataset meets the FAIR requirements of the selected profile.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- FAIR metrics -->
+        <div class="about-section">
+            <h3>FAIR Metrics Evaluated</h3>
+            <table class="metric-table">
+                <thead>
+                    <tr><th>ID</th><th>Description</th><th>Priority</th><th>Configurable?</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>F1</td><td>Dataset has a globally unique persistent identifier</td><td><span class="badge-essential">Essential</span></td><td>✓ Accepted identifier types</td></tr>
+                    <tr><td>F2</td><td>Metadata uses rich descriptive attributes</td><td><span class="badge-essential">Essential</span></td><td>✓ Required metadata fields</td></tr>
+                    <tr><td>F3</td><td>Metadata includes the dataset identifier</td><td><span class="badge-essential">Essential</span></td><td>Fixed</td></tr>
+                    <tr><td>F4</td><td>Metadata is retrievable via standard identifier</td><td><span class="badge-essential">Essential</span></td><td>✓ Discoverability check on/off</td></tr>
+                    <tr><td>A1</td><td>Metadata retrievable by identifier using HTTP/HTTPS</td><td><span class="badge-essential">Essential</span></td><td>Fixed</td></tr>
+                    <tr><td>A1.1</td><td>Metadata uses open, free protocol (HTTPS)</td><td><span class="badge-essential">Essential</span></td><td>Fixed</td></tr>
+                    <tr><td>A1.2</td><td>Authentication protocol for access-controlled data</td><td><span class="badge-useful">Useful</span></td><td>Fixed</td></tr>
+                    <tr><td>A2</td><td>Metadata persists independently of the data</td><td><span class="badge-essential">Essential</span></td><td>Fixed</td></tr>
+                    <tr><td>I1</td><td>Data uses a knowledge representation language</td><td><span class="badge-important">Important</span></td><td>✓ Accepted file formats</td></tr>
+                    <tr><td>I2</td><td>Metadata uses FAIR vocabularies</td><td><span class="badge-important">Important</span></td><td>✓ Required vocabulary + FAIR level</td></tr>
+                    <tr><td>I3</td><td>Metadata includes qualified references to related resources</td><td><span class="badge-important">Important</span></td><td>✓ Require related resources on/off</td></tr>
+                    <tr><td>R1</td><td>Metadata has accurate and relevant attributes for reuse</td><td><span class="badge-essential">Essential</span></td><td>✓ Required reuse fields</td></tr>
+                    <tr><td>R1.1</td><td>Released with a clear, accessible data usage licence</td><td><span class="badge-essential">Essential</span></td><td>✓ Accepted licences</td></tr>
+                    <tr><td>R1.2</td><td>Associated with detailed provenance</td><td><span class="badge-important">Important</span></td><td>✓ Required provenance fields</td></tr>
+                    <tr><td>R1.3</td><td>Meets domain-relevant community standards</td><td><span class="badge-essential">Essential</span></td><td>✓ Community standard name</td></tr>
+                </tbody>
+            </table>
+            <p style="font-size:0.78rem;color:#888;margin-top:0.5rem">
+                Priority levels and metric definitions based on Bahim et al. (2020) [1].
+                Fixed metrics apply the same criteria regardless of the active profile.
+            </p>
+        </div>
+
+        <!-- References -->
+        <div class="about-section">
+            <h3>References</h3>
+            <ul class="ref-list">
+                <li>
+                    <span class="ref-num">[1]</span>
+                    Bahim, C., Casorrán-Amilburu, C., Dekkers, M., Herczog, E., Loozen, N.,
+                    Repanas, K., Russell, K., &amp; Stall, S. (2020).
+                    The FAIR Data Maturity Model: An Approach to Harmonise FAIR Assessments.
+                    <em>Data Science Journal</em>, 19, 41.
+                    <a href="https://doi.org/10.5334/dsj-2020-041" target="_blank" rel="noopener" style="color:#1a73e8">doi:10.5334/dsj-2020-041</a>
+                </li>
+                <li>
+                    <span class="ref-num">[2]</span>
+                    Wilkinson, M. D., et al. (2016). The FAIR Guiding Principles for scientific
+                    data management and stewardship. <em>Scientific Data</em>, 3, 160018.
+                    <a href="https://doi.org/10.1038/sdata.2016.18" target="_blank" rel="noopener" style="color:#1a73e8">doi:10.1038/sdata.2016.18</a>
+                </li>
+                <li>
+                    <span class="ref-num">[3]</span>
+                    Devaraju, A., &amp; Huber, R. (2021). An automated solution for measuring
+                    the progress toward FAIR research data. <em>Patterns</em>, 2(11), 100370.
+                    <a href="https://doi.org/10.1016/j.patter.2021.100370" target="_blank" rel="noopener" style="color:#1a73e8">doi:10.1016/j.patter.2021.100370</a>
+                </li>
+                <li>
+                    <span class="ref-num">[4]</span>
+                    Cox, S. J. D., et al. (2021). Ten Simple Rules for Making a Vocabulary FAIR.
+                    <em>PLOS Computational Biology</em>, 17(6), e1009041.
+                    <a href="https://doi.org/10.1371/journal.pcbi.1009041" target="_blank" rel="noopener" style="color:#1a73e8">doi:10.1371/journal.pcbi.1009041</a>
+                </li>
+                <li>
+                    <span class="ref-num">[5]</span>
+                    Schultes, E., et al. (2020). FAIR Implementation Profiles: A Blueprint for
+                    FAIR Implementation. <em>Data Intelligence</em>, 2(1–2), 135–143.
+                    <a href="https://doi.org/10.1162/dint_a_00037" target="_blank" rel="noopener" style="color:#1a73e8">doi:10.1162/dint_a_00037</a>
+                </li>
+            </ul>
+        </div>
+
+        <div style="font-size:0.78rem;color:#aaa;text-align:center;padding-top:1rem;
+            border-top:1px solid #f0f0f0">
+            Developed by Jump Srinualnad · University of Twente · 2024–2025 ·
+            <a href="https://github.com/natrinJump/fair-assessment"
+               target="_blank" rel="noopener" style="color:#aaa">GitHub</a>
+        </div>
+
+    </div>
 </div>
+
 </body>
 </html>

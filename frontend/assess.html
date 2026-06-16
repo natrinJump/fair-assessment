@@ -148,11 +148,17 @@
     <!-- Results -->
     <div id="results-container" style="display:none">
         <div class="card">
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem">
-                <h2 style="margin:0">FAIR Assessment Results</h2>
-                <span id="maturity-badge" class="maturity-badge"></span>
+            <h2 style="margin:0 0 0.35rem">FAIR Assessment Results</h2>
+            <p style="font-size:0.875rem;color:#666;margin-bottom:0.75rem" id="result-doi"></p>
+            <!-- Maturity level row — clearly labeled -->
+            <div id="maturity-row" style="display:none;align-items:center;gap:0.75rem;
+                padding:0.65rem 1rem;border-radius:8px;margin-bottom:1rem;border:1px solid">
+                <div style="font-size:0.8rem;font-weight:600;color:#555;white-space:nowrap">
+                    Maturity Level:
+                </div>
+                <span id="maturity-badge" style="font-size:1rem;font-weight:700"></span>
+                <span id="maturity-desc" style="font-size:0.8rem;color:#666"></span>
             </div>
-            <p style="font-size:0.875rem;color:#666;margin-bottom:1rem" id="result-doi"></p>
 
             <div class="score-overview">
                 <div class="score-card overall">
@@ -424,8 +430,30 @@ function parseTurtle(text) {
     // ── 5. Fill metadata fields ───────────────────────────────────
     result.title = extractTTL(['dcterms:title', 'dc:title', 'schema:name', 'rdfs:label', 'dct:title']);
     result.description = extractTTL(['dcterms:description', 'dc:description', 'schema:description', 'dct:description']);
-    result.creator = extractTTL(['dcterms:creator', 'dc:creator', 'schema:creator', 'schema:author', 'dct:creator']);
     result.license = extractTTL(['dcterms:license', 'schema:license', 'cc:license', 'dct:license']);
+
+    // Creator: try direct string/URI first, then blank node [ foaf:name "..." ]
+    const creatorDirect = extractTTL(['dcterms:creator', 'dc:creator', 'schema:creator', 'schema:author', 'dct:creator']);
+    if (creatorDirect) {
+        result.creator = creatorDirect;
+    } else {
+        // Blank node pattern: dcterms:creator [ foaf:name "Jump Srinualnad" ]
+        const creatorPredList = ['dcterms:creator', 'dct:creator', 'dc:creator', 'schema:creator', 'schema:author'];
+        let creatorFound = '';
+        for (const pred of creatorPredList) {
+            const esc = pred.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const blankIdx = text.search(new RegExp(esc + '\\s*\\[', 'i'));
+            if (blankIdx === -1) continue;
+            const start = text.indexOf('[', blankIdx);
+            const end   = text.indexOf(']', start);
+            if (start === -1 || end === -1) continue;
+            const inner = text.slice(start + 1, end);
+            const nameRe = /(?:foaf:name|vcard:fn|vcard:hasName|schema:name|rdfs:label)\s+"([^"]+)"/i;
+            const m = inner.match(nameRe);
+            if (m && m[1]) { creatorFound = m[1].trim(); break; }
+        }
+        result.creator = creatorFound;
+    }
     result.provenance_date = extractTTL(['dcterms:issued', 'dcterms:created', 'dcterms:modified', 'schema:datePublished', 'dct:issued']);
     result.formats = extractAllTTL(['dcat:mediaType', 'dcat:format', 'dcterms:format', 'dc:format']);
 
@@ -626,14 +654,35 @@ function renderReport(report) {
     document.getElementById('score-i').textContent       = formatScore(report.i_score);
     document.getElementById('score-r').textContent       = formatScore(report.r_score);
 
-    // Maturity badge
-    const badge = document.getElementById('maturity-badge');
+    // Maturity level — prominent labeled row
+    const maturityRow  = document.getElementById('maturity-row');
+    const maturityBadge = document.getElementById('maturity-badge');
+    const maturityDesc  = document.getElementById('maturity-desc');
+
+    const maturityDescriptions = {
+        'Incomplete':     'Score below 40% — core FAIR requirements are not met.',
+        'Initial':        'Score 40–59% — basic FAIR requirements are partially met.',
+        'Intermediate':   'Score 60–79% — most FAIR requirements are met with some gaps.',
+        'Advanced':       'Score 80–100% — dataset meets the FAIR requirements of this profile.'
+    };
+    const maturityColors = {
+        'Incomplete':   { bg: '#fce8e6', border: '#f5c6c4', text: '#c5221f' },
+        'Initial':      { bg: '#fef7e0', border: '#f4d98a', text: '#b06000' },
+        'Intermediate': { bg: '#e8f0fe', border: '#aec6f6', text: '#1557b0' },
+        'Advanced':     { bg: '#e6f4ea', border: '#a8d5b5', text: '#137333' }
+    };
+
     if (report.maturity_level) {
-        badge.textContent  = report.maturity_level;
-        badge.className    = 'maturity-badge maturity-' + report.maturity_level.replace(' ', '');
-        badge.style.display = 'inline-block';
+        const level  = report.maturity_level;
+        const colors = maturityColors[level] || { bg: '#f0f0f0', border: '#ccc', text: '#333' };
+        maturityRow.style.display       = 'flex';
+        maturityRow.style.background    = colors.bg;
+        maturityRow.style.borderColor   = colors.border;
+        maturityBadge.textContent       = level;
+        maturityBadge.style.color       = colors.text;
+        maturityDesc.textContent        = maturityDescriptions[level] || '';
     } else {
-        badge.style.display = 'none';
+        maturityRow.style.display = 'none';
     }
 
     // Metric results grouped by principle
