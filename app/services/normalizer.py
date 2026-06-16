@@ -4,6 +4,44 @@ import xml.etree.ElementTree as ET
 from app.models.metadata import CoreMetadata, NormalizedMetadata
 
 
+VOCAB_URI_PATTERNS = {
+    'agrovoc': 'agrovoc',
+    'aims.fao.org': 'agrovoc',
+    'agrovoc.fao.org': 'agrovoc',
+    'id.nlm.nih.gov/mesh': 'mesh',
+    'nlm.nih.gov': 'mesh',
+    'meshb.nlm': 'mesh',
+    'purl.obolibrary.org/obo/envo': 'envo',
+    'ddialliance.org': 'ddi',
+    'purl.org/dc': 'Dublin Core, dcterms:',
+    'schema.org': 'schema.org',
+    'w3.org/ns/dcat': 'DCAT, dcat:',
+    'w3.org/2004/02/skos': 'SKOS, skos:',
+}
+ 
+def extract_vocab_indicators(subjects: list) -> str:
+    """
+    Extract vocabulary indicators from DataCite subjects list.
+    Each subject may have subjectScheme, schemeUri, valueUri.
+    Returns a comma-separated string of detected vocabulary names
+    that the backend check_vocabulary() will find.
+    """
+    found = set()
+    for s in subjects:
+        for field in ['subjectScheme', 'schemeURI', 'schemeUri', 'valueURI', 'valueUri']:
+            val = s.get(field, '').lower()
+            if not val:
+                continue
+            # Add the raw value so it can be matched against profile.required_vocabulary
+            found.add(val)
+            # Also map to known vocab names
+            for pattern, name in VOCAB_URI_PATTERNS.items():
+                if pattern in val:
+                    for n in name.split(','):
+                        found.add(n.strip())
+    return ', '.join(found)
+
+
 def extract_custom_fields(attrs: dict, custom_fields: list) -> dict:
     custom = {}
     if not custom_fields:

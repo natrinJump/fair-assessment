@@ -5,40 +5,82 @@
     <title>Assess - FAIR Assessment Tool</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .tab-btn {
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            border: 1px solid #1a73e8;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        .tab-btn.active { background: #1a73e8; color: white; }
-        .tab-btn.inactive { background: white; color: #1a73e8; }
-        .input-group {
+        .tabs {
             display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
+            gap: 0;
+            border-bottom: 2px solid #e0e0e0;
             margin-bottom: 1rem;
         }
-        .input-row { display: flex; gap: 0.75rem; }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 0.6rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .tab-btn.active {
+            color: #1a73e8;
+            border-bottom-color: #1a73e8;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .input-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
         .input-row input[type="text"] {
             flex: 1;
             min-width: 0;
             margin-bottom: 0;
-            padding: 0.6rem 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.9rem;
         }
         .input-row select {
             width: 220px;
             margin-bottom: 0;
-            padding: 0.6rem 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.9rem;
         }
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            background: #fafafa;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .file-upload-area:hover {
+            border-color: #1a73e8;
+            background: #e8f0fe;
+        }
+        .file-upload-area.has-file {
+            border-color: #0f9d58;
+            background: #e6f4ea;
+        }
+        .file-upload-area input[type="file"] {
+            display: none;
+        }
+        .file-hint {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.35rem;
+        }
+        .maturity-badge {
+            display: inline-block;
+            padding: 0.3rem 0.85rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 0.75rem;
+        }
+        .maturity-Incomplete { background: #fce8e6; color: #c5221f; }
+        .maturity-Initial { background: #fef7e0; color: #b06000; }
+        .maturity-Intermediate { background: #e8f0fe; color: #1557b0; }
+        .maturity-Advanced { background: #e6f4ea; color: #137333; }
     </style>
 </head>
 <body>
@@ -47,64 +89,70 @@
     <h1>FAIR Assessment Tool</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
 </nav>
 
 <div class="container">
     <div class="card">
         <h2>Run Assessment</h2>
-        <div class="input-group">
 
-            <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem">
-                <button type="button" class="tab-btn active" id="tab-doi"
-                    onclick="switchTab('doi')">
-                    Enter DOI / URL
-                </button>
-                <button type="button" class="tab-btn inactive" id="tab-file"
-                    onclick="switchTab('file')">
-                    Upload Metadata File
-                </button>
-            </div>
-
-            <div id="panel-doi">
-                <div class="input-row">
-                    <input type="text" id="doi-input" list="doi-suggestions"
-                        placeholder="Enter DOI, Handle, or URL — e.g. 10.5281/zenodo.3490058">
-                    <datalist id="doi-suggestions"></datalist>
-                    <select id="profile-select"></select>
-                    <button type="button" class="btn btn-primary"
-                        onclick="runAssessment()">Run Assessment</button>
-                </div>
-            </div>
-
-            <div id="panel-file" style="display:none">
-                <div class="input-row">
-                    <input type="file" id="file-input"
-                        accept=".json,.jsonld,.xml,.rdf,.ttl"
-                        style="flex:1;padding:0.5rem;border:1px solid #ddd;
-                        border-radius:6px;font-size:0.875rem">
-                    <select id="profile-select-file"></select>
-                    <button type="button" class="btn btn-primary"
-                        onclick="runFileAssessment()">Run Assessment</button>
-                </div>
-                <div style="font-size:0.78rem;color:#888;margin-top:0.35rem">
-                    Accepted formats: DataCite JSON (.json), schema.org JSON-LD (.jsonld),
-                    DataCite XML (.xml), RDF/XML (.rdf), RDF Turtle (.ttl).
-                    Other file types are not supported.
-                </div>
-            </div>
-
+        <!-- Profile selector always visible -->
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem">
+            <label style="font-size:0.875rem;color:#444;white-space:nowrap">Profile:</label>
+            <select id="profile-select" style="flex:1;margin-bottom:0"></select>
         </div>
-        <div id="message-area"></div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('doi')">DOI / URL</button>
+            <button class="tab-btn" onclick="switchTab('file')">Upload Metadata File</button>
+        </div>
+
+        <!-- Tab: DOI -->
+        <div id="tab-doi" class="tab-content active">
+            <div class="input-row">
+                <input type="text" id="doi-input"
+                    placeholder="Enter DOI, e.g. 10.5281/zenodo.3490058 or full URL">
+                <button type="button" class="btn btn-primary" onclick="runDOIAssessment()">
+                    Run Assessment
+                </button>
+            </div>
+            <p class="file-hint" style="margin-top:0.5rem">
+                Supports DOI, Handle, ARK, and direct URLs. Retrieves metadata automatically from
+                DataCite, Zenodo, PANGAEA, Dataverse, or any schema.org JSON-LD endpoint.
+            </p>
+        </div>
+
+        <!-- Tab: File Upload -->
+        <div id="tab-file" class="tab-content">
+            <div class="file-upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+                <input type="file" id="file-input"
+                    accept=".json,.jsonld,.xml,.rdf,.ttl"
+                    onchange="handleFileSelect(this)">
+                <div id="upload-label">
+                    <div style="font-size:1.5rem;margin-bottom:0.5rem">📄</div>
+                    <div style="font-size:0.9rem;color:#444">Click to upload a metadata file</div>
+                    <div class="file-hint">Supported: DataCite JSON, schema.org JSON-LD, DataCite XML, RDF/XML, RDF Turtle (.ttl)</div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="runFileAssessment()">
+                Run Assessment
+            </button>
+        </div>
+
+        <div id="message-area" style="margin-top:0.75rem"></div>
     </div>
 
+    <!-- Results -->
     <div id="results-container" style="display:none">
         <div class="card">
-            <h2>FAIR Evaluation Results</h2>
-            <p style="font-size:0.875rem;color:#666;margin-bottom:1rem"
-                id="result-doi"></p>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem">
+                <h2 style="margin:0">FAIR Assessment Results</h2>
+                <span id="maturity-badge" class="maturity-badge"></span>
+            </div>
+            <p style="font-size:0.875rem;color:#666;margin-bottom:1rem" id="result-doi"></p>
 
             <div class="score-overview">
                 <div class="score-card overall">
@@ -129,36 +177,17 @@
                 </div>
             </div>
 
-            <div id="maturity-box" style="display:none;margin-bottom:1rem;
-                padding:0.75rem 1rem;border-radius:6px;
-                border-left:4px solid #1a73e8;background:#f0f7ff">
-                <div style="font-size:0.8rem;color:#666;margin-bottom:2px">
-                    Maturity Level
-                </div>
-                <div id="maturity-level"
-                    style="font-size:1rem;font-weight:700;color:#1a73e8">
-                </div>
-                <div id="maturity-desc"
-                    style="font-size:0.8rem;color:#555;margin-top:4px">
-                </div>
-            </div>
-
-            <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
-                Details:
-            </h3>
+            <h3 style="font-size:0.9rem;font-weight:600;margin:1rem 0 0.75rem">Metric Details:</h3>
             <div id="metric-results"></div>
 
-            <hr class="section-divider">
-            <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">
-                Recommendations:
-            </h3>
+            <hr class="section-divider" style="margin:1rem 0">
+            <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem">Recommendations:</h3>
             <div id="recommendations"></div>
 
-            <div style="display:flex;gap:0.75rem;margin-top:1rem">
-                <button type="button" class="btn btn-secondary"
-                    onclick="downloadReport()">Download Report</button>
-                <button type="button" class="btn btn-primary"
-                    onclick="runAssessment()">Re-run Assessment</button>
+            <div style="display:flex;gap:0.75rem;margin-top:1rem;flex-wrap:wrap">
+                <button class="btn btn-secondary" onclick="downloadReport()">Download JSON Report</button>
+                <button class="btn btn-secondary" onclick="window.print()">Print / Save PDF</button>
+                <button type="button" class="btn btn-primary" onclick="runDOIAssessment()">Re-run</button>
             </div>
         </div>
     </div>
@@ -166,512 +195,517 @@
 
 <script src="app.js"></script>
 <script>
-var lastReport = null;
+let lastReport = null;
+let parsedFileMetadata = null;
 
+// ── Tab switching ──────────────────────────────────────────────
 function switchTab(tab) {
-    var isDoi = tab === 'doi';
-    document.getElementById('panel-doi').style.display = isDoi ? 'block' : 'none';
-    document.getElementById('panel-file').style.display = isDoi ? 'none' : 'block';
-    document.getElementById('tab-doi').className = 'tab-btn ' + (isDoi ? 'active' : 'inactive');
-    document.getElementById('tab-file').className = 'tab-btn ' + (isDoi ? 'inactive' : 'active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    event.target.classList.add('active');
 }
 
-async function loadProfiles() {
-    try {
-        var profiles = await apiFetch('/profiles');
-        var options = profiles.map(function(p) {
-            return '<option value="' + p.domain + '">' + p.name + '</option>';
-        }).join('');
-        document.getElementById('profile-select').innerHTML = options;
-        var fileSelect = document.getElementById('profile-select-file');
-        if (fileSelect) fileSelect.innerHTML = options;
-        var saved = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
-        if (saved.domain) {
-            document.getElementById('profile-select').value = saved.domain;
-            if (fileSelect) fileSelect.value = saved.domain;
-        }
-    } catch(e) {
-        console.error('Could not load profiles', e);
-    }
-}
+// ── Vocabulary detection ───────────────────────────────────────
+// Maps known vocabulary indicators to vocab names.
+// The output string is searched by the backend check_i2 / check_vocabulary.
+// Include both the display name AND raw indicator strings so the backend
+// finds them when it does: str(metadata.custom).lower()
+const VOCAB_INDICATORS = [
+    // schema.org
+    { patterns: ['schema.org', '"@context"', "'@context'", 'schema:'], names: ['schema.org', 'schema.org', '"@context"'] },
+    // Dublin Core / dcterms
+    { patterns: ['purl.org/dc/terms', 'purl.org/dc/elements', 'dcterms:', 'dc:', 'dc.title', 'dc.creator', 'dublin core'], names: ['Dublin Core', 'dcterms:', 'dc:'] },
+    // DCAT
+    { patterns: ['w3.org/ns/dcat', 'dcat:', 'dcat.'], names: ['DCAT', 'dcat:'] },
+    // SKOS
+    { patterns: ['w3.org/2004/02/skos', 'skos:', 'skos.'], names: ['SKOS', 'skos:'] },
+    // FOAF
+    { patterns: ['xmlns.com/foaf', 'foaf:'], names: ['FOAF', 'foaf:'] },
+    // AGROVOC
+    { patterns: ['agrovoc', 'aims.fao.org', 'agrovoc.fao.org'], names: ['AGROVOC', 'agrovoc'] },
+    // MeSH
+    { patterns: ['id.nlm.nih.gov/mesh', 'nlm.nih.gov/mesh', 'meshb.nlm', 'mesh'], names: ['MeSH', 'mesh'] },
+    // ENVO
+    { patterns: ['purl.obolibrary.org/obo/envo', 'ebi.ac.uk/ols/ontologies/envo', 'envo'], names: ['ENVO', 'envo'] },
+    // DDI
+    { patterns: ['ddialliance.org', 'ddi:', 'ddi.'], names: ['DDI', 'ddi'] },
+    // OWL
+    { patterns: ['w3.org/2002/07/owl', 'owl:'], names: ['OWL', 'owl:'] },
+    // PROV
+    { patterns: ['w3.org/ns/prov', 'prov:'], names: ['PROV', 'prov:'] },
+];
 
-function loadPreviousDOIs() {
-    try {
-        var history = getLocalHistory();
-        var dois = [];
-        history.forEach(function(h) {
-            if (dois.indexOf(h.doi) === -1) dois.push(h.doi);
-        });
-        var datalist = document.getElementById('doi-suggestions');
-        datalist.innerHTML = dois.map(function(doi) {
-            return '<option value="' + doi + '">';
-        }).join('');
-    } catch(e) {}
-}
-
-async function runAssessment() {
-    var doi = document.getElementById('doi-input').value.trim();
-    var profile = document.getElementById('profile-select').value;
-
-    if (!doi) {
-        showError('message-area', 'Please enter a DOI, Handle, or URL');
-        return;
-    }
-
-    document.getElementById('message-area').innerHTML =
-        '<div class="loading">Running assessment...</div>';
-    document.getElementById('results-container').style.display = 'none';
-
-    try {
-        var report = await apiFetch(
-            '/assess/' + doi + '?profile=' + encodeURIComponent(profile)
-        );
-        lastReport = report;
-
-        var profiles = await apiFetch('/profiles');
-        var profileData = profiles.find(function(p) { return p.domain === profile; });
-        addToLocalHistory(report, profileData || {});
-
-        document.getElementById('message-area').innerHTML = '';
-        renderReport(report);
-        loadPreviousDOIs();
-    } catch(e) {
-        showError('message-area', 'Assessment failed: ' + e.message);
-    }
-}
-
-function parseXML(xmlText) {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(xmlText, 'text/xml');
-
-    function getText(tag) {
-        var el = doc.getElementsByTagName(tag)[0];
-        return el ? el.textContent.trim() : null;
-    }
-
-    var identifier = getText('identifier') || getText('doi') || 'unknown';
-    var license = null;
-    var rightsEl = doc.getElementsByTagName('rights')[0];
-    if (rightsEl) {
-        license = rightsEl.getAttribute('rightsURI') || rightsEl.textContent.trim();
-    }
-    var formats = [];
-    var formatEls = doc.getElementsByTagName('format');
-    for (var i = 0; i < formatEls.length; i++) {
-        formats.push(formatEls[i].textContent.trim());
-    }
-
-        // extract vocabularies from subjectScheme attributes
-    var subjectEls = doc.getElementsByTagName('subject');
-    var schemeVocabs = [];
-    for (var i = 0; i < subjectEls.length; i++) {
-        var scheme = subjectEls[i].getAttribute('subjectScheme') ||
-                    subjectEls[i].getAttribute('schemeURI') || '';
-        if (scheme) schemeVocabs.push(scheme.toLowerCase());
-    }
-
-    // also scan raw XML text for namespace declarations and known vocab URIs
-    var xmlLower = xmlText.toLowerCase();
-    var xmlVocabMap = {
-        'dc:': 'Dublin Core',
-        'dcterms:': 'Dublin Core',
-        'purl.org/dc': 'Dublin Core',
-        'dcat:': 'DCAT',
-        'w3.org/ns/dcat': 'DCAT',
-        'skos:': 'SKOS',
-        'w3.org/2004/02/skos': 'SKOS',
-        'schema:': 'schema.org',
-        'schema.org': 'schema.org',
-        'foaf:': 'FOAF',
-        'xmlns.com/foaf': 'FOAF',
-        'agrovoc': 'AGROVOC',
-        'aims.fao.org': 'AGROVOC',
-        'meshb.nlm': 'MeSH',
-        'id.nlm.nih.gov/mesh': 'MeSH',
-        'ebi.ac.uk/ols/ontologies/envo': 'ENVO',
-        'purl.obolibrary.org/obo/envo': 'ENVO',
-        'ddialliance.org': 'DDI'
-    };
-
-    var xmlDetected = [];
-    Object.keys(xmlVocabMap).forEach(function(key) {
-        if (xmlLower.indexOf(key) !== -1) {
-            var vocab = xmlVocabMap[key];
-            if (xmlDetected.indexOf(vocab) === -1) {
-                xmlDetected.push(vocab);
+function detectVocabularies(rawText) {
+    const lower = rawText.toLowerCase();
+    const collected = new Set();
+    VOCAB_INDICATORS.forEach(({ patterns, names }) => {
+        for (const pat of patterns) {
+            if (lower.includes(pat)) {
+                names.forEach(n => collected.add(n));
+                break;
             }
         }
     });
-
-    // combine subjectScheme values and detected vocabs
-    var allDetected = schemeVocabs.concat(xmlDetected);
-    if (allDetected.length > 0) {
-        var unique = allDetected.filter(function(v, i) {
-            return allDetected.indexOf(v) === i;
-        });
-        result.detected_vocabularies = unique.join(', ');
-    }
-
-    return {
-        identifier: identifier,
-        title: getText('title'),
-        description: getText('description'),
-        creator: getText('creatorName') || getText('creator'),
-        license: license,
-        formats: formats,
-        provenance_date: getText('publicationYear') || getText('date'),
-        access_url: identifier.startsWith('10.')
-            ? 'https://doi.org/' + identifier : null
-    };
+    return [...collected].join(', ');
 }
 
-function parseTurtle(text) {
-    var result = {
-        identifier: null,
-        title: null,
-        description: null,
-        creator: null,
-        license: null,
-        formats: [],
-        provenance_date: null,
-        access_url: null
-    };
+// ── File parsers ───────────────────────────────────────────────
+function parseJSON(text) {
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Invalid JSON file'); }
 
-    function getLiteral(predicate) {
-        var patterns = [
-            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"([^"]+)"(?:@\\w+)?', 'i'),
-            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"""([\\s\\S]+?)"""', 'i'),
-        ];
-        for (var i = 0; i < patterns.length; i++) {
-            var match = text.match(patterns[i]);
-            if (match) return match[1].trim();
-        }
-        return null;
+    const result = { source: 'json_upload' };
+    const detectedFromText = detectVocabularies(text);
+
+    // --- schema.org JSON-LD ---
+    if (data['@context'] || data['@type']) {
+        const ctx = data['@context'] || '';
+        result.identifier   = data.identifier || data['@id'] || '';
+        result.title        = data.name || data.title || '';
+        result.description  = data.description || '';
+        result.creator      = extractCreator(data.creator || data.author);
+        result.license      = data.license || data.licenseUrl || '';
+        result.formats      = extractFormats(data.encodingFormat || data.fileFormat || data.distribution);
+        result.access_url   = data.url || data.distribution?.[0]?.contentUrl || '';
+        result.provenance_date = data.datePublished || data.dateModified || '';
+        // schema.org context IS the vocabulary indicator
+        const ctxStr = typeof ctx === 'string' ? ctx : JSON.stringify(ctx);
+        result.detected_vocabularies = mergeVocabs(detectedFromText, detectVocabularies(ctxStr));
     }
 
-    function getURI(predicate) {
-        var match = text.match(
-            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+<([^>]+)>', 'i')
-        );
-        return match ? match[1].trim() : null;
-    }
+    // --- DataCite JSON (has "data.attributes" or top-level DataCite fields) ---
+    else {
+        const attrs = data.data?.attributes || data.attributes || data;
 
-    // find subject URI — skip prefixes and comments
-    var lines = text.split('\n');
-    var subjectURI = null;
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (line.startsWith('@prefix') || line.startsWith('#') ||
-            line.startsWith('PREFIX') || line === '') continue;
-        var uriMatch = line.match(/^<(https?:\/\/[^>]+)>/);
-        if (uriMatch) {
-            subjectURI = uriMatch[1];
-            break;
-        }
-    }
+        result.identifier   = attrs.doi || attrs.identifier || data.id || '';
+        result.title        = extractTitle(attrs.titles || attrs.title);
+        result.description  = extractDesc(attrs.descriptions || attrs.description);
+        result.creator      = extractCreatorDC(attrs.creators || attrs.creator);
+        result.license      = extractLicense(attrs.rightsList || attrs.rights || attrs.license);
+        result.formats      = attrs.formats || [];
+        result.access_url   = attrs.url || '';
+        result.provenance_date = attrs.publicationYear?.toString() ||
+                                 attrs.dates?.[0]?.date || '';
 
-    // title
-    result.title = getLiteral('dcterms:title') ||
-                   getLiteral('dc:title') ||
-                   getLiteral('schema:name') ||
-                   getLiteral('rdfs:label');
-
-    // description
-    result.description = getLiteral('dcterms:description') ||
-                         getLiteral('dc:description') ||
-                         getLiteral('schema:description');
-
-    // creator — try foaf:name in blank node first
-    var foafMatch = text.match(/foaf:name\s+"([^"]+)"/i);
-    if (foafMatch) {
-        result.creator = foafMatch[1];
-    } else {
-        result.creator = getLiteral('dcterms:creator') ||
-                         getLiteral('dc:creator') ||
-                         getLiteral('schema:author') ||
-                         getLiteral('dcterms:publisher');
-    }
-
-    // license
-    result.license = getURI('dcterms:license') ||
-                     getURI('dc:rights') ||
-                     getLiteral('dcterms:license') ||
-                     getLiteral('dc:rights');
-
-    // identifier — prefer w3id or persistent URI
-    result.identifier = getLiteral('dcterms:identifier') ||
-                        getLiteral('dc:identifier') ||
-                        getURI('owl:sameAs') ||
-                        subjectURI;
-
-    // date
-    result.provenance_date = getLiteral('dcterms:issued') ||
-                             getLiteral('dcterms:created') ||
-                             getLiteral('dc:date');
-
-    // access URL
-    result.access_url = getURI('dcat:landingPage') ||
-                        subjectURI;
-
-    // formats from dcat distributions
-    var formatMatches = text.match(/dcat:mediaType\s+"([^"]+)"/gi);
-    if (formatMatches) {
-        result.formats = formatMatches.map(function(m) {
-            var match = m.match(/dcat:mediaType\s+"([^"]+)"/i);
-            return match ? match[1] : '';
-        }).filter(Boolean);
-    }
-
-    if (!result.identifier) result.identifier = 'uploaded-turtle-file';
-    // extract declared namespace prefixes as vocabulary indicators
-    var namespaceMap = {
-        'dcterms': ['Dublin Core', 'dcterms'],
-        'dc:': ['Dublin Core', 'dc'],
-        'dcat:': ['DCAT', 'dcat'],
-        'skos:': ['SKOS', 'skos'],
-        'schema:': ['schema.org', 'schema'],
-        'foaf:': ['FOAF', 'foaf'],
-        'prov:': ['PROV', 'prov'],
-        'owl:': ['OWL', 'owl']
-    };
-
-    var detectedVocabs = [];
-    var textLower = text.toLowerCase();
-    Object.keys(namespaceMap).forEach(function(prefix) {
-        if (textLower.indexOf('@prefix ' + prefix) !== -1 ||
-            textLower.indexOf(prefix + ' ') !== -1) {
-            detectedVocabs = detectedVocabs.concat(namespaceMap[prefix]);
-        }
-    });
-
-    if (detectedVocabs.length > 0) {
-        // deduplicate
-        var unique = detectedVocabs.filter(function(v, i) {
-            return detectedVocabs.indexOf(v) === i;
+        // Extract subjectScheme values — this is where AGROVOC, MeSH etc. appear in DataCite
+        const subjects = attrs.subjects || [];
+        const schemeVocabs = [];
+        subjects.forEach(s => {
+            const scheme = s.subjectScheme || s.schemeUri || '';
+            const uri    = s.valueUri || s.schemeUri || '';
+            if (scheme) schemeVocabs.push(scheme.toLowerCase());
+            if (uri)    schemeVocabs.push(uri.toLowerCase());
         });
-        result.detected_vocabularies = unique.join(', ');
+
+        const schemesStr = schemeVocabs.join(', ');
+        result.detected_vocabularies = mergeVocabs(detectedFromText, detectVocabularies(schemesStr), schemesStr);
     }
 
     return result;
 }
 
-function parseJSON(jsonData) {
-    // DataCite format
-    if (jsonData.data && jsonData.data.attributes) {
-        var attrs = jsonData.data.attributes;
-        var titles = attrs.titles || [];
-        var creators = attrs.creators || [];
-        var rights = attrs.rightsList || [];
-        var descs = attrs.descriptions || [];
-        return {
-            identifier: attrs.doi || 'unknown',
-            title: titles[0] ? titles[0].title : null,
-            description: descs[0] ? descs[0].description : null,
-            creator: creators[0] ? creators[0].name : null,
-            license: rights[0] ? (rights[0].rightsUri || rights[0].rightsURI) : null,
-            formats: attrs.formats || [],
-            provenance_date: attrs.published || null,
-            access_url: 'https://doi.org/' + (attrs.doi || '')
-        };
+function parseXML(text) {
+    let doc;
+    try {
+        const parser = new DOMParser();
+        doc = parser.parseFromString(text, 'application/xml');
+        if (doc.querySelector('parsererror')) throw new Error('parse error');
+    } catch(e) { throw new Error('Invalid XML file'); }
+
+    const result = { source: 'xml_upload' };
+
+    // Helper: get text content of first matching element
+    const get = (tag) => doc.getElementsByTagName(tag)[0]?.textContent?.trim() || '';
+    const getAll = (tag) => [...doc.getElementsByTagName(tag)].map(el => el.textContent.trim()).filter(Boolean);
+
+    // --- Dublin Core (OAI-PMH / oai_dc) ---
+    const isDC = text.includes('oai_dc') || text.includes('dc:title') || text.includes('purl.org/dc');
+    if (isDC) {
+        result.identifier   = get('dc:identifier') || get('identifier');
+        result.title        = get('dc:title') || get('title');
+        result.description  = get('dc:description') || get('description');
+        result.creator      = get('dc:creator') || get('creator');
+        result.license      = get('dc:rights') || get('rights');
+        result.formats      = getAll('dc:format').concat(getAll('format'));
+        result.access_url   = get('dc:identifier') || '';
+        result.provenance_date = get('dc:date') || get('date');
     }
 
-    // schema.org JSON-LD
-    if (jsonData['@type'] || jsonData['@context']) {
-        var creators2 = jsonData.creator || jsonData.author || [];
-        if (!Array.isArray(creators2)) creators2 = [creators2];
-        var lic = jsonData.license;
-        if (typeof lic === 'object' && lic !== null) lic = lic['@id'] || lic.url;
-        var dist = jsonData.distribution || [];
-        if (!Array.isArray(dist)) dist = [dist];
-        var fmts = dist.map(function(d) {
-            return d.encodingFormat || d.fileFormat || '';
-        }).filter(Boolean);
-        return {
-            identifier: jsonData.identifier || jsonData['@id'] || 'unknown',
-            title: jsonData.name || jsonData.headline || null,
-            description: jsonData.description || null,
-            creator: creators2[0] ? (creators2[0].name || creators2[0]) : null,
-            license: lic || null,
-            formats: fmts,
-            provenance_date: jsonData.datePublished || jsonData.dateCreated || null,
-            access_url: jsonData.url || jsonData['@id'] || null
-        };
+    // --- DataCite XML ---
+    else {
+        result.identifier   = get('identifier') || get('doi');
+        result.title        = get('title');
+        result.description  = get('description');
+        result.creator      = getAll('creatorName').join('; ') || getAll('creator').join('; ');
+        result.license      = get('rights') || get('rightsURI');
+        result.formats      = getAll('format');
+        result.access_url   = get('identifier') || '';
+        result.provenance_date = get('publicationYear') || get('date');
     }
 
-    // generic flat JSON
-    return {
-        identifier: jsonData.identifier || jsonData.doi || jsonData.id || 'unknown',
-        title: jsonData.title || jsonData.name || null,
-        description: jsonData.description || jsonData.abstract || null,
-        creator: jsonData.creator || jsonData.author || null,
-        license: jsonData.license || jsonData.rights || null,
-        formats: jsonData.formats ? jsonData.formats : (jsonData.format ? [jsonData.format] : []),
-        provenance_date: jsonData.publicationYear || jsonData.datePublished || null,
-        access_url: jsonData.url || null
-    };
+    // Extract subjectScheme attributes — DataCite XML uses these for AGROVOC, MeSH etc.
+    const subjectEls = doc.getElementsByTagName('subject');
+    const schemeVocabs = [];
+    for (let i = 0; i < subjectEls.length; i++) {
+        const scheme    = subjectEls[i].getAttribute('subjectScheme') || '';
+        const schemeURI = subjectEls[i].getAttribute('schemeURI') || subjectEls[i].getAttribute('schemeUri') || '';
+        const valueURI  = subjectEls[i].getAttribute('valueURI') || '';
+        if (scheme)    schemeVocabs.push(scheme.toLowerCase());
+        if (schemeURI) schemeVocabs.push(schemeURI.toLowerCase());
+        if (valueURI)  schemeVocabs.push(valueURI.toLowerCase());
+    }
+
+    // Scan raw XML text for namespace declarations and known vocab URIs
+    const textVocabs  = detectVocabularies(text);
+    const schemeStr   = schemeVocabs.join(', ');
+    const schemeNames = detectVocabularies(schemeStr);
+    // Also include raw scheme values so backend can match profile.required_vocabulary
+    result.detected_vocabularies = mergeVocabs(textVocabs, schemeNames, schemeStr);
+
+    return result;
 }
 
-async function runFileAssessment() {
-    var fileInput = document.getElementById('file-input');
-    var profile = document.getElementById('profile-select-file').value;
+function parseTurtle(text) {
+    const result = { source: 'ttl_upload' };
+    const lines  = text.split('\n');
 
-    if (!fileInput.files || fileInput.files.length === 0) {
-        showError('message-area', 'Please select a file to upload');
-        return;
+    // Extract @prefix declarations — these ARE the vocabulary declarations
+    const prefixMap = {};
+    lines.forEach(line => {
+        const m = line.match(/@prefix\s+(\w*:)\s*<([^>]+)>/i);
+        if (m) prefixMap[m[1]] = m[2];
+    });
+
+    // Helper: extract value after a predicate
+    const extractPred = (predicate) => {
+        const patterns = [predicate + ' "', predicate + " '"];
+        for (const p of patterns) {
+            const idx = text.indexOf(p);
+            if (idx !== -1) {
+                const start = idx + p.length;
+                const end   = text.indexOf('"', start);
+                if (end !== -1) return text.slice(start, end).trim();
+            }
+        }
+        return '';
+    };
+
+    // Try to extract common metadata predicates (resolve prefixes)
+    const titlePreds   = ['dcterms:title', 'dc:title', 'schema:name', 'rdfs:label'];
+    const creatorPreds = ['dcterms:creator', 'dc:creator', 'schema:creator', 'prov:wasAttributedTo'];
+    const descPreds    = ['dcterms:description', 'dc:description', 'schema:description'];
+    const licensePreds = ['dcterms:license', 'schema:license', 'cc:license'];
+    const idPreds      = ['dcterms:identifier', 'schema:identifier', '@id'];
+    const datePreds    = ['dcterms:issued', 'dcterms:created', 'schema:datePublished'];
+
+    result.title        = titlePreds.map(p => extractPred(p)).find(v => v) || '';
+    result.creator      = creatorPreds.map(p => extractPred(p)).find(v => v) || '';
+    result.description  = descPreds.map(p => extractPred(p)).find(v => v) || '';
+    result.license      = licensePreds.map(p => extractPred(p)).find(v => v) || '';
+    result.identifier   = idPreds.map(p => extractPred(p)).find(v => v) || '';
+    result.provenance_date = datePreds.map(p => extractPred(p)).find(v => v) || '';
+    result.formats      = [];
+    result.access_url   = result.identifier || '';
+
+    // Vocabulary detection: scan raw text + prefix URIs
+    const prefixUriText = Object.values(prefixMap).join(' ');
+    const prefixKeyText = Object.keys(prefixMap).join(' ');
+    const textVocabs    = detectVocabularies(text);
+    const uriVocabs     = detectVocabularies(prefixUriText);
+    // Include raw prefix keys (e.g. "dcterms:", "dcat:", "skos:") — backend searches for these
+    result.detected_vocabularies = mergeVocabs(textVocabs, uriVocabs, prefixKeyText);
+
+    return result;
+}
+
+// ── Helper: merge vocab strings, deduplicate ───────────────────
+function mergeVocabs(...parts) {
+    const all = new Set();
+    parts.forEach(p => {
+        if (p) p.split(',').map(s => s.trim()).filter(Boolean).forEach(s => all.add(s));
+    });
+    return [...all].join(', ');
+}
+
+// ── Helper: extract fields from DataCite structures ────────────
+function extractTitle(titles) {
+    if (!titles) return '';
+    if (typeof titles === 'string') return titles;
+    if (Array.isArray(titles)) return titles[0]?.title || titles[0] || '';
+    return '';
+}
+
+function extractDesc(descs) {
+    if (!descs) return '';
+    if (typeof descs === 'string') return descs;
+    if (Array.isArray(descs)) return descs[0]?.description || descs[0] || '';
+    return '';
+}
+
+function extractCreator(creator) {
+    if (!creator) return '';
+    if (typeof creator === 'string') return creator;
+    if (creator.name) return creator.name;
+    if (Array.isArray(creator)) return creator.map(c => c.name || c).join('; ');
+    return '';
+}
+
+function extractCreatorDC(creators) {
+    if (!creators) return '';
+    if (typeof creators === 'string') return creators;
+    if (Array.isArray(creators)) return creators.map(c => c.name || c.creatorName || c).join('; ');
+    return '';
+}
+
+function extractLicense(rights) {
+    if (!rights) return '';
+    if (typeof rights === 'string') return rights;
+    if (Array.isArray(rights)) return rights[0]?.rightsUri || rights[0]?.rights || rights[0] || '';
+    return '';
+}
+
+function extractFormats(fmts) {
+    if (!fmts) return [];
+    if (typeof fmts === 'string') return [fmts];
+    if (Array.isArray(fmts)) {
+        return fmts.map(f => {
+            if (typeof f === 'string') return f;
+            return f.encodingFormat || f.fileFormat || f.format || '';
+        }).filter(Boolean);
     }
+    return [];
+}
 
-    var file = fileInput.files[0];
-    var filename = file.name.toLowerCase();
-    var allowedExtensions = ['.json', '.jsonld', '.xml', '.rdf', '.ttl'];
-    var fileExtension = filename.substring(filename.lastIndexOf('.'));
+// ── File selection handler ─────────────────────────────────────
+function handleFileSelect(input) {
+    if (!input.files.length) return;
+    const file = input.files[0];
+    document.getElementById('upload-label').innerHTML = `
+        <div style="font-size:1rem;color:#0f9d58;margin-bottom:0.25rem">✓ ${file.name}</div>
+        <div class="file-hint">${(file.size / 1024).toFixed(1)} KB — click to change</div>
+    `;
+    document.getElementById('upload-area').classList.add('has-file');
+    parsedFileMetadata = null; // reset on new file selection
+}
 
-    if (allowedExtensions.indexOf(fileExtension) === -1) {
-        showError('message-area',
-            'Unsupported file format "' + fileExtension + '". ' +
-            'Please upload one of: ' + allowedExtensions.join(', '));
-        return;
-    }
+// ── Assessment runners ─────────────────────────────────────────
+async function runDOIAssessment() {
+    const doi     = document.getElementById('doi-input').value.trim();
+    const profile = document.getElementById('profile-select').value;
+    if (!doi) { showError('message-area', 'Please enter a DOI or URL'); return; }
 
-    document.getElementById('message-area').innerHTML =
-        '<div class="loading">Parsing file and running assessment...</div>';
-    document.getElementById('results-container').style.display = 'none';
-
+    showLoading();
     try {
-        var text = await file.text();
-        var parsed;
-
-        if (fileExtension === '.xml' || fileExtension === '.rdf') {
-            parsed = parseXML(text);
-        } else if (fileExtension === '.ttl') {
-            parsed = parseTurtle(text);
-        } else {
-            try {
-                var jsonData = JSON.parse(text);
-                parsed = parseJSON(jsonData);
-            } catch(e) {
-                showError('message-area',
-                    'Could not parse file — please make sure it is valid JSON. Error: ' + e.message);
-                return;
-            }
-        }
-
-        if (!parsed.title && !parsed.identifier) {
-            showError('message-area',
-                'Could not extract metadata from file. ' +
-                'Make sure the file contains valid DataCite JSON, schema.org JSON-LD, DataCite XML, or DCAT Turtle.');
-            return;
-        }
-
-        var response = await fetch(
-            API + '/assess/metadata?profile=' + encodeURIComponent(profile),
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(parsed)
-            }
+        const report = await apiFetch(
+            `/assess/${encodeURIComponent(doi)}?profile=${encodeURIComponent(profile)}`
         );
-
-        if (!response.ok) {
-            var err = await response.json().catch(function() { return {}; });
-            throw new Error(err.detail || 'Assessment failed');
-        }
-
-        var report = await response.json();
         lastReport = report;
-
-        var profiles = await apiFetch('/profiles');
-        var profileData = profiles.find(function(p) { return p.domain === profile; });
-        addToLocalHistory(report, profileData || {});
-
         document.getElementById('message-area').innerHTML = '';
         renderReport(report);
-
+        saveToLocalHistory(report);
     } catch(e) {
         showError('message-area', 'Assessment failed: ' + e.message);
     }
 }
 
+async function runFileAssessment() {
+    const fileInput = document.getElementById('file-input');
+    const profile   = document.getElementById('profile-select').value;
+
+    if (!fileInput.files.length) {
+        showError('message-area', 'Please select a metadata file first');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const name = file.name.toLowerCase();
+    showLoading();
+
+    try {
+        const text = await readFileAsText(file);
+        let parsed;
+
+        if (name.endsWith('.ttl') || name.endsWith('.turtle')) {
+            parsed = parseTurtle(text);
+        } else if (name.endsWith('.xml') || name.endsWith('.rdf')) {
+            parsed = parseXML(text);
+        } else if (name.endsWith('.json') || name.endsWith('.jsonld')) {
+            parsed = parseJSON(text);
+        } else {
+            // Try JSON first, then XML, then TTL
+            try       { parsed = parseJSON(text); }
+            catch(e1) {
+                try   { parsed = parseXML(text); }
+                catch { parsed = parseTurtle(text); }
+            }
+        }
+
+        // Send to backend assess/metadata endpoint
+        const body = { ...parsed, profile };
+        const report = await apiFetch('/assess/metadata', {
+            method: 'POST',
+            body: JSON.stringify(body)
+        });
+
+        lastReport = report;
+        document.getElementById('message-area').innerHTML = '';
+        renderReport(report);
+        saveToLocalHistory(report);
+    } catch(e) {
+        showError('message-area', 'Assessment failed: ' + e.message);
+    }
+}
+
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = e => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Could not read file'));
+        reader.readAsText(file);
+    });
+}
+
+function showLoading() {
+    document.getElementById('message-area').innerHTML =
+        '<div class="loading">Running assessment...</div>';
+    document.getElementById('results-container').style.display = 'none';
+}
+
+// ── Profile loader ─────────────────────────────────────────────
+async function loadProfiles() {
+    try {
+        const profiles = await apiFetch('/profiles');
+        const select   = document.getElementById('profile-select');
+        select.innerHTML = profiles.map(p =>
+            `<option value="${p.domain}">${p.name}</option>`
+        ).join('');
+        const saved = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
+        if (saved.domain) select.value = saved.domain;
+    } catch(e) {
+        console.error('Could not load profiles', e);
+    }
+}
+
+// ── Render results ─────────────────────────────────────────────
 function renderReport(report) {
     document.getElementById('results-container').style.display = 'block';
     document.getElementById('result-doi').textContent =
-        'Dataset: ' + report.doi + ' | Profile: ' + report.profile_name;
+        'Dataset: ' + report.doi + ' · Profile: ' + report.profile_name;
 
     document.getElementById('score-overall').textContent = formatScore(report.overall_score);
-    document.getElementById('score-f').textContent = formatScore(report.f_score);
-    document.getElementById('score-a').textContent = formatScore(report.a_score);
-    document.getElementById('score-i').textContent = formatScore(report.i_score);
-    document.getElementById('score-r').textContent = formatScore(report.r_score);
+    document.getElementById('score-f').textContent       = formatScore(report.f_score);
+    document.getElementById('score-a').textContent       = formatScore(report.a_score);
+    document.getElementById('score-i').textContent       = formatScore(report.i_score);
+    document.getElementById('score-r').textContent       = formatScore(report.r_score);
 
+    // Maturity badge
+    const badge = document.getElementById('maturity-badge');
     if (report.maturity_level) {
-        var colors = {
-            'Advanced': '#0f9d58', 'Intermediate': '#1a73e8',
-            'Initial': '#f4b400', 'Incomplete': '#9e9e9e'
-        };
-        var backgrounds = {
-            'Advanced': '#e6f4ea', 'Intermediate': '#e8f0fe',
-            'Initial': '#fef7e0', 'Incomplete': '#f5f5f5'
-        };
-        var box = document.getElementById('maturity-box');
-        var level = document.getElementById('maturity-level');
-        var desc = document.getElementById('maturity-desc');
-        box.style.display = 'block';
-        box.style.borderLeftColor = colors[report.maturity_level] || '#1a73e8';
-        box.style.background = backgrounds[report.maturity_level] || '#f0f7ff';
-        level.textContent = report.maturity_level;
-        level.style.color = colors[report.maturity_level] || '#1a73e8';
-        desc.textContent = report.maturity_description;
+        badge.textContent  = report.maturity_level;
+        badge.className    = 'maturity-badge maturity-' + report.maturity_level.replace(' ', '');
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
     }
 
-    document.getElementById('metric-results').innerHTML =
-        report.results.map(function(r) {
-            return '<div class="metric-result ' + r.status + '">' +
-                '<div class="metric-header">' +
-                '<span class="metric-id">' + r.metric_id + '</span>' +
-                '<span class="metric-desc">' + r.description + '</span>' +
-                '<span class="badge ' + r.status + '">' + r.status + '</span>' +
-                '<span class="badge ' + r.priority + '">' + r.priority + '</span>' +
-                '</div>' +
-                (r.evidence ? '<div class="metric-evidence">&#10003; ' + r.evidence + '</div>' : '') +
-                (r.recommendation ? '<div class="metric-recommendation">&rarr; ' + r.recommendation + '</div>' : '') +
-                '</div>';
-        }).join('');
+    // Metric results grouped by principle
+    const principles = ['F', 'A', 'I', 'R'];
+    const principleNames = { F: 'Findable', A: 'Accessible', I: 'Interoperable', R: 'Reusable' };
+    const metricContainer = document.getElementById('metric-results');
+    metricContainer.innerHTML = principles.map(p => {
+        const pResults = report.results.filter(r => r.principle === p);
+        if (!pResults.length) return '';
+        return `
+            <div style="margin-bottom:1rem">
+                <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:0.05em;color:#1a73e8;margin-bottom:0.5rem;
+                    padding:0.3rem 0.5rem;background:#e8f0fe;border-radius:4px">
+                    ${p} — ${principleNames[p]}
+                </div>
+                ${pResults.map(r => `
+                    <div class="metric-result ${r.status}">
+                        <div class="metric-header">
+                            <span class="metric-id">${r.metric_id}</span>
+                            <span class="metric-desc">${r.description}</span>
+                            <span class="badge ${r.status}">${r.status}</span>
+                            <span class="badge ${r.priority}">${r.priority}</span>
+                        </div>
+                        ${r.evidence
+                            ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
+                            : ''}
+                        ${r.recommendation
+                            ? `<div class="metric-recommendation">→ ${r.recommendation}</div>`
+                            : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }).join('');
 
-    var recs = report.results.filter(function(r) { return r.recommendation; });
-    var recContainer = document.getElementById('recommendations');
+    // Recommendations summary
+    const recs = report.results.filter(r => r.recommendation);
+    const recContainer = document.getElementById('recommendations');
     if (recs.length === 0) {
         recContainer.innerHTML =
-            '<p style="font-size:0.875rem;color:#0f9d58">' +
-            'No recommendations — dataset meets all profile criteria.</p>';
+            '<p style="font-size:0.875rem;color:#0f9d58">No recommendations — dataset meets all profile criteria.</p>';
     } else {
-        recContainer.innerHTML = recs.map(function(r) {
-            return '<div style="font-size:0.875rem;margin-bottom:0.5rem;' +
-                'padding:0.5rem;background:#fafafa;border-radius:4px;' +
-                'border-left:3px solid #db4437">' +
-                '<strong>' + r.metric_id + ':</strong> ' + r.recommendation +
-                '</div>';
-        }).join('');
+        recContainer.innerHTML = recs.map(r =>
+            `<div style="font-size:0.875rem;margin-bottom:0.35rem;padding:0.35rem 0.5rem;
+                border-left:3px solid #f4b400;padding-left:0.75rem">
+                <strong>${r.metric_id}:</strong> ${r.recommendation}
+            </div>`
+        ).join('');
+    }
+
+    document.getElementById('results-container').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Download / export ──────────────────────────────────────────
+function downloadReport() {
+    if (!lastReport) return;
+    const blob = new Blob([JSON.stringify(lastReport, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'fair-report-' + (lastReport.doi || 'unknown').replace(/[^a-z0-9]/gi, '-') + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ── Local history ──────────────────────────────────────────────
+function saveToLocalHistory(report) {
+    try {
+        const history = JSON.parse(localStorage.getItem('fairHistory') || '[]');
+        history.unshift({
+            id: Date.now(),
+            doi: report.doi,
+            profile_name: report.profile_name,
+            overall_score: report.overall_score,
+            f_score: report.f_score,
+            a_score: report.a_score,
+            i_score: report.i_score,
+            r_score: report.r_score,
+            maturity_level: report.maturity_level || '',
+            created_at: new Date().toISOString(),
+            results: report.results
+        });
+        // Keep last 100
+        localStorage.setItem('fairHistory', JSON.stringify(history.slice(0, 100)));
+    } catch(e) {
+        console.warn('Could not save to history', e);
     }
 }
 
-function downloadReport() {
-    if (!lastReport) return;
-    var blob = new Blob([JSON.stringify(lastReport, null, 2)],
-        { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'fair-report-' + lastReport.doi.replace(/\//g, '-') + '.json';
-    a.click();
-}
+// ── Init ───────────────────────────────────────────────────────
+loadProfiles();
 
-var prefill = localStorage.getItem('prefillDoi');
+// Pre-fill DOI if navigated from history
+const prefill = localStorage.getItem('prefillDoi');
 if (prefill) {
     document.getElementById('doi-input').value = prefill;
     localStorage.removeItem('prefillDoi');
 }
-
-loadProfiles();
-loadPreviousDOIs();
 </script>
 </body>
 </html>
