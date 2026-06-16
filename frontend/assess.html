@@ -368,53 +368,80 @@ function parseXML(text) {
 
 function parseTurtle(text) {
     const result = { source: 'ttl_upload' };
-    const lines  = text.split('\n');
 
-    // Extract @prefix declarations — these ARE the vocabulary declarations
+    // ── 1. Extract @prefix declarations ──────────────────────────
     const prefixMap = {};
-    lines.forEach(line => {
-        const m = line.match(/@prefix\s+(\w*:)\s*<([^>]+)>/i);
-        if (m) prefixMap[m[1]] = m[2];
-    });
+    const prefixRe  = /@prefix\s+(\S*:)\s*<([^>]+)>\s*\./gi;
+    let pm;
+    while ((pm = prefixRe.exec(text)) !== null) prefixMap[pm[1]] = pm[2];
 
-    // Helper: extract value after a predicate
-    const extractPred = (predicate) => {
-        const patterns = [predicate + ' "', predicate + " '"];
-        for (const p of patterns) {
-            const idx = text.indexOf(p);
-            if (idx !== -1) {
-                const start = idx + p.length;
-                const end   = text.indexOf('"', start);
-                if (end !== -1) return text.slice(start, end).trim();
-            }
+    // ── 2. Extract subject URI ────────────────────────────────────
+    // Pattern: <uri> a ... OR <uri>\n  a ...
+    const subjectRe = /<([^>]+)>\s*(?:\r?\n\s*)?\s+(?:a|rdf:type)\b/;
+    const subjectM  = text.match(subjectRe);
+    const subjectURI = subjectM ? subjectM[1] : '';
+
+    // ── 3. Robust predicate extractor ────────────────────────────
+    // Handles:  predicate "value"          (string literal)
+    //           predicate "value"@lang     (language-tagged)
+    //           predicate "value"^^xsd:X   (typed literal)
+    //           predicate <uri>            (URI reference — used for license, identifier etc.)
+    //           predicate\n    "value"     (value on next line)
+    function extractTTL(predicates) {
+        for (const pred of predicates) {
+            const esc = pred.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // String literal (double or single quotes, optional lang/type suffix)
+            const reStr = new RegExp(esc + '\\s+"((?:[^"\\\\]|\\\\.)*)"', 'i');
+            const mStr  = text.match(reStr);
+            if (mStr && mStr[1]) return mStr[1].trim();
+
+            const reStr2 = new RegExp(esc + "\\s+'((?:[^'\\\\]|\\\\.)*)'", 'i');
+            const mStr2  = text.match(reStr2);
+            if (mStr2 && mStr2[1]) return mStr2[1].trim();
+
+            // URI reference in angle brackets
+            const reURI = new RegExp(esc + '\\s+<([^>]+)>', 'i');
+            const mURI  = text.match(reURI);
+            if (mURI && mURI[1]) return mURI[1].trim();
         }
         return '';
-    };
+    }
 
-    // Try to extract common metadata predicates (resolve prefixes)
-    const titlePreds   = ['dcterms:title', 'dc:title', 'schema:name', 'rdfs:label'];
-    const creatorPreds = ['dcterms:creator', 'dc:creator', 'schema:creator', 'prov:wasAttributedTo'];
-    const descPreds    = ['dcterms:description', 'dc:description', 'schema:description'];
-    const licensePreds = ['dcterms:license', 'schema:license', 'cc:license'];
-    const idPreds      = ['dcterms:identifier', 'schema:identifier', '@id'];
-    const datePreds    = ['dcterms:issued', 'dcterms:created', 'schema:datePublished'];
+    // ── 4. Extract formats from dcat:mediaType / dcat:format ─────
+    function extractAllTTL(predicates) {
+        const vals = [];
+        for (const pred of predicates) {
+            const esc = pred.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re  = new RegExp(esc + '\\s+"([^"]+)"', 'gi');
+            let m;
+            while ((m = re.exec(text)) !== null) vals.push(m[1].trim());
+            const reURI = new RegExp(esc + '\\s+<([^>]+)>', 'gi');
+            while ((m = reURI.exec(text)) !== null) vals.push(m[1].trim());
+        }
+        return [...new Set(vals)];
+    }
 
-    result.title        = titlePreds.map(p => extractPred(p)).find(v => v) || '';
-    result.creator      = creatorPreds.map(p => extractPred(p)).find(v => v) || '';
-    result.description  = descPreds.map(p => extractPred(p)).find(v => v) || '';
-    result.license      = licensePreds.map(p => extractPred(p)).find(v => v) || '';
-    result.identifier   = idPreds.map(p => extractPred(p)).find(v => v) || '';
-    result.provenance_date = datePreds.map(p => extractPred(p)).find(v => v) || '';
-    result.formats      = [];
-    result.access_url   = result.identifier || '';
+    // ── 5. Fill metadata fields ───────────────────────────────────
+    result.title = extractTTL(['dcterms:title', 'dc:title', 'schema:name', 'rdfs:label', 'dct:title']);
+    result.description = extractTTL(['dcterms:description', 'dc:description', 'schema:description', 'dct:description']);
+    result.creator = extractTTL(['dcterms:creator', 'dc:creator', 'schema:creator', 'schema:author', 'dct:creator']);
+    result.license = extractTTL(['dcterms:license', 'schema:license', 'cc:license', 'dct:license']);
+    result.provenance_date = extractTTL(['dcterms:issued', 'dcterms:created', 'dcterms:modified', 'schema:datePublished', 'dct:issued']);
+    result.formats = extractAllTTL(['dcat:mediaType', 'dcat:format', 'dcterms:format', 'dc:format']);
 
-    // Vocabulary detection: scan raw text + prefix URIs
+    // Identifier: prefer dcterms:identifier, then subject URI
+    result.identifier = extractTTL(['dcterms:identifier', 'schema:identifier', 'dct:identifier']) || subjectURI;
+    result.access_url = extractTTL(['dcat:accessURL', 'schema:url', 'foaf:homepage']) || result.identifier || subjectURI;
+
+    // ── 6. Vocabulary detection ───────────────────────────────────
+    // Scan raw text AND prefix URIs AND prefix keys (e.g. "dcterms:", "dcat:")
     const prefixUriText = Object.values(prefixMap).join(' ');
     const prefixKeyText = Object.keys(prefixMap).join(' ');
-    const textVocabs    = detectVocabularies(text);
-    const uriVocabs     = detectVocabularies(prefixUriText);
-    // Include raw prefix keys (e.g. "dcterms:", "dcat:", "skos:") — backend searches for these
-    result.detected_vocabularies = mergeVocabs(textVocabs, uriVocabs, prefixKeyText);
+    result.detected_vocabularies = mergeVocabs(
+        detectVocabularies(text),
+        detectVocabularies(prefixUriText),
+        prefixKeyText   // raw prefix keys like "dcterms:" "dcat:" — backend searches for these
+    );
 
     return result;
 }
@@ -541,9 +568,9 @@ async function runFileAssessment() {
             }
         }
 
-        // Send to backend assess/metadata endpoint
-        const body = { ...parsed, profile };
-        const report = await apiFetch('/assess/metadata', {
+        // Send to backend — profile as query param, not in body
+        const body = { ...parsed };
+        const report = await apiFetch(`/assess/metadata?profile=${encodeURIComponent(profile)}`, {
             method: 'POST',
             body: JSON.stringify(body)
         });
