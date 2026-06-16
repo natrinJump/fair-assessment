@@ -89,8 +89,8 @@
     <h1>FAIR Assessment Tool</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
 </nav>
 
@@ -750,24 +750,12 @@ function downloadReport() {
 }
 
 // ── Local history ──────────────────────────────────────────────
+// Uses addToLocalHistory() from app.js which writes to 'fair_history' key
+// read by history.html
 function saveToLocalHistory(report) {
     try {
-        const history = JSON.parse(localStorage.getItem('fairHistory') || '[]');
-        history.unshift({
-            id: Date.now(),
-            doi: report.doi,
-            profile_name: report.profile_name,
-            overall_score: report.overall_score,
-            f_score: report.f_score,
-            a_score: report.a_score,
-            i_score: report.i_score,
-            r_score: report.r_score,
-            maturity_level: report.maturity_level || '',
-            created_at: new Date().toISOString(),
-            results: report.results
-        });
-        // Keep last 100
-        localStorage.setItem('fairHistory', JSON.stringify(history.slice(0, 100)));
+        const selectedProfile = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
+        addToLocalHistory(report, selectedProfile);
     } catch(e) {
         console.warn('Could not save to history', e);
     }
