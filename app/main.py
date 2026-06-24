@@ -287,7 +287,7 @@ async def assess_from_metadata(
         loaded_profile = load_profile_obj(profile)
         vocab_fairness = await assess_vocab_fairness(loaded_profile)
 
-        report = run_assessment(normalized, profile)
+        report = run_assessment(normalized, profile, vocab_fairness=vocab_fairness)
         return report
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -304,7 +304,7 @@ async def assess_upload(
         filename = file.filename.lower()
         from app.services.normalizer import normalize_from_upload
         normalized = normalize_from_upload(content, filename, profile)
-        report = run_assessment(normalized, profile)
+        report = run_assessment(normalized, profile, vocab_fairness=vocab_fairness)
 
         profile_data = get_profile_by_domain(profile)
         if not profile_data:
