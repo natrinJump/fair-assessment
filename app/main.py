@@ -29,11 +29,58 @@ def get_custom_fields_for_profile(profile_name: str) -> list:
         )
     return []
 
+# Add this lookup table at the top of generate_turtle()
+KNOWN_RESOURCE_URIS = {
+    # Identifier services
+    "doi":     "https://doi.org/",
+    "handle":  "https://hdl.handle.net/",
+    "ark":     "https://n2t.net/",
+    "w3id":    "https://w3id.org/",
+    "url":     "https://www.w3.org/Addressing/URL/url-spec.txt",
+    # Vocabularies
+    "agrovoc":        "https://agrovoc.fao.org/browse/agrovoc/en/",
+    "mesh":           "https://id.nlm.nih.gov/mesh/",
+    "envo":           "http://purl.obolibrary.org/obo/envo.owl",
+    "ddi":            "https://ddialliance.org/",
+    "schema.org":     "https://schema.org/",
+    "dublin core":    "http://purl.org/dc/terms/",
+    "dcterms":        "http://purl.org/dc/terms/",
+    "skos":           "http://www.w3.org/2004/02/skos/core#",
+    "dcat":           "http://www.w3.org/ns/dcat#",
+    # Licences
+    "cc-by":          "https://creativecommons.org/licenses/by/4.0/",
+    "cc-by-4.0":      "https://creativecommons.org/licenses/by/4.0/",
+    "cc0":            "https://creativecommons.org/publicdomain/zero/1.0/",
+    "cc0-1.0":        "https://creativecommons.org/publicdomain/zero/1.0/",
+    "cc-by-sa":       "https://creativecommons.org/licenses/by-sa/4.0/",
+    "cc-by-nc":       "https://creativecommons.org/licenses/by-nc/4.0/",
+    "mit":            "https://opensource.org/licenses/MIT",
+    "apache-2.0":     "https://www.apache.org/licenses/LICENSE-2.0",
+    # Formats — point to IANA media type registry where possible
+    "csv":            "https://www.iana.org/assignments/media-types/text/csv",
+    "json":           "https://www.iana.org/assignments/media-types/application/json",
+    "json-ld":        "https://www.iana.org/assignments/media-types/application/ld+json",
+    "rdf":            "https://www.w3.org/TR/rdf-syntax-grammar/",
+    "turtle":         "https://www.w3.org/TR/turtle/",
+    "netcdf":         "https://www.unidata.ucar.edu/software/netcdf/",
+    "xml":            "https://www.w3.org/TR/xml/",
+    "owl":            "https://www.w3.org/TR/owl2-overview/",
+    # Community standards
+    "datacite":       "https://schema.datacite.org/",
+    "dcat-ap":        "https://joinup.ec.europa.eu/collection/semantic-interoperability-community-semic/solution/dcat-application-profile-data-portals-europe",
+    "schema.org dataset": "https://schema.org/Dataset",
+}
+
+def get_resource_uri(value: str) -> str:
+    """Return known URI for a resource, or None if not known."""
+    return KNOWN_RESOURCE_URIS.get(value.lower().strip())
+
 def generate_turtle(profile: dict) -> str:
     name = profile["name"]
     domain = profile["domain"]
     base_uri = f"https://w3id.org/fair/fip/example/{domain}"
     profile_uri = f"{base_uri}/profile"
+    
 
     lines = []
 
