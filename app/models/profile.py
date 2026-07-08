@@ -1,8 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
 
-# I2 — vocabulary fairness threshold
-min_vocab_fairness_level: str = "none"  # none | basic | standard | full
 
 class CustomIdentifier(BaseModel):
     name: str
@@ -10,11 +8,13 @@ class CustomIdentifier(BaseModel):
     value: str
     description: Optional[str] = None
 
+
 class CustomVocabulary(BaseModel):
     name: str
-    check_url: Optional[str] = None  # API endpoint to validate against
-    keywords: list[str] = []         # keywords to look for in metadata
+    check_url: Optional[str] = None
+    keywords: list[str] = []
     description: Optional[str] = None
+
 
 class Profile(BaseModel):
     name: str
@@ -22,7 +22,7 @@ class Profile(BaseModel):
 
     # F1 — identifier configuration
     accepted_identifiers: list[str] = []
-    custom_identifiers: list[dict] = []  # CustomIdentifier dicts
+    custom_identifiers: list[dict] = []
 
     # F2 — metadata fields
     required_metadata_fields: list[str] = []
@@ -36,7 +36,8 @@ class Profile(BaseModel):
 
     # I2 — vocabularies
     required_vocabulary: Optional[str] = None
-    custom_vocabularies: list[dict] = []  # CustomVocabulary dicts
+    custom_vocabularies: list[dict] = []
+    min_vocab_fairness_level: str = "none"  # ← MUST BE HERE inside the class
 
     # I3 — qualified references
     require_related_resources: bool = False
@@ -51,6 +52,7 @@ class Profile(BaseModel):
     # R1.3 — community standards
     community_standard: Optional[str] = None
 
+
 class MetricResult(BaseModel):
     metric_id: str
     principle: str
@@ -59,6 +61,7 @@ class MetricResult(BaseModel):
     description: str
     evidence: Optional[str] = None
     recommendation: Optional[str] = None
+
 
 class AssessmentReport(BaseModel):
     doi: str
