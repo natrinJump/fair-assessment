@@ -548,11 +548,12 @@ def restore_profile(name: str):
     with open(path, "r") as f:
         original = json.load(f)
     updated = update_profile(name, {
-        "accepted_identifiers": original["accepted_identifiers"],
-        "required_metadata_fields": original["required_metadata_fields"],
-        "accepted_formats": original["accepted_formats"],
-        "required_vocabulary": original.get("required_vocabulary"),
-        "required_license": original.get("required_license"),
+    "accepted_identifiers": original["accepted_identifiers"],
+    "required_metadata_fields": original["required_metadata_fields"],
+    "accepted_formats": original["accepted_formats"],
+    "required_vocabulary": original.get("required_vocabulary"),
+    "required_license": original.get("required_license"),
+    "min_vocab_fairness_level": original.get("min_vocab_fairness_level", "none"),  
     })
     return updated
 
