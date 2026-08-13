@@ -170,214 +170,287 @@ var selectedProfiles = [];
 var comparisonResults = [];
 var compareChart = null;
 
+// ── Vocabulary detection ───────────────────────────────────────
+// Identical to assess.html — both frontend files need this
+const VOCAB_INDICATORS = [
+    { patterns: ['schema.org', '"@context"', "'@context'", 'schema:'], names: ['schema.org', 'schema.org', '"@context"'] },
+    { patterns: ['purl.org/dc/terms', 'purl.org/dc/elements', 'dcterms:', 'dc:', 'dc.title', 'dc.creator', 'dublin core'], names: ['Dublin Core', 'dcterms:', 'dc:'] },
+    { patterns: ['w3.org/ns/dcat', 'dcat:', 'dcat.'], names: ['DCAT', 'dcat:'] },
+    { patterns: ['w3.org/2004/02/skos', 'skos:', 'skos.'], names: ['SKOS', 'skos:'] },
+    { patterns: ['xmlns.com/foaf', 'foaf:'], names: ['FOAF', 'foaf:'] },
+    { patterns: ['agrovoc', 'aims.fao.org', 'agrovoc.fao.org'], names: ['AGROVOC', 'agrovoc'] },
+    { patterns: ['id.nlm.nih.gov/mesh', 'nlm.nih.gov/mesh', 'meshb.nlm', 'mesh'], names: ['MeSH', 'mesh'] },
+    { patterns: ['purl.obolibrary.org/obo/envo', 'ebi.ac.uk/ols/ontologies/envo', 'envo'], names: ['ENVO', 'envo'] },
+    { patterns: ['ddialliance.org', 'ddi:', 'ddi.'], names: ['DDI', 'ddi'] },
+    { patterns: ['w3.org/2002/07/owl', 'owl:'], names: ['OWL', 'owl:'] },
+    { patterns: ['w3.org/ns/prov', 'prov:'], names: ['PROV', 'prov:'] },
+];
+
+function detectVocabularies(rawText) {
+    const lower = rawText.toLowerCase();
+    const collected = new Set();
+    VOCAB_INDICATORS.forEach(({ patterns, names }) => {
+        for (const pat of patterns) {
+            if (lower.includes(pat)) {
+                names.forEach(n => collected.add(n));
+                break;
+            }
+        }
+    });
+    return [...collected].join(', ');
+}
+
+function mergeVocabs(...parts) {
+    const all = new Set();
+    parts.forEach(p => {
+        if (p) p.split(',').map(s => s.trim()).filter(Boolean).forEach(s => all.add(s));
+    });
+    return [...all].join(', ');
+}
+
+// ── File parsers ───────────────────────────────────────────────
+
+function parseJSON(text) {
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Invalid JSON file'); }
+
+    const result = { source: 'json_upload' };
+    const detectedFromText = detectVocabularies(text);
+
+    // schema.org JSON-LD
+    if (data['@context'] || data['@type']) {
+        const ctx = data['@context'] || '';
+        result.identifier   = data.identifier || data['@id'] || '';
+        result.title        = data.name || data.title || '';
+        result.description  = data.description || '';
+        result.creator      = extractCreator(data.creator || data.author);
+        result.license      = data.license || data.licenseUrl || '';
+        result.formats      = extractFormats(data.encodingFormat || data.fileFormat || data.distribution);
+        result.access_url   = data.url || data.distribution?.[0]?.contentUrl || '';
+        result.provenance_date = data.datePublished || data.dateModified || '';
+        const ctxStr = typeof ctx === 'string' ? ctx : JSON.stringify(ctx);
+        result.detected_vocabularies = mergeVocabs(detectedFromText, detectVocabularies(ctxStr));
+    }
+    // DataCite JSON
+    else {
+        const attrs = data.data?.attributes || data.attributes || data;
+        result.identifier   = attrs.doi || attrs.identifier || data.id || '';
+        result.title        = extractTitle(attrs.titles || attrs.title);
+        result.description  = extractDesc(attrs.descriptions || attrs.description);
+        result.creator      = extractCreatorDC(attrs.creators || attrs.creator);
+        result.license      = extractLicense(attrs.rightsList || attrs.rights || attrs.license);
+        result.formats      = attrs.formats || [];
+        result.access_url   = attrs.url || '';
+        result.provenance_date = attrs.publicationYear?.toString() || attrs.dates?.[0]?.date || '';
+
+        // Extract subjectScheme values — AGROVOC, MeSH etc. appear here
+        const subjects = attrs.subjects || [];
+        const schemeVocabs = [];
+        subjects.forEach(s => {
+            const scheme = s.subjectScheme || s.schemeUri || '';
+            const uri    = s.valueUri || s.schemeUri || '';
+            if (scheme) schemeVocabs.push(scheme.toLowerCase());
+            if (uri)    schemeVocabs.push(uri.toLowerCase());
+        });
+        const schemesStr = schemeVocabs.join(', ');
+        result.detected_vocabularies = mergeVocabs(detectedFromText, detectVocabularies(schemesStr), schemesStr);
+    }
+    return result;
+}
+
+function parseXML(text) {
+    let doc;
+    try {
+        const parser = new DOMParser();
+        doc = parser.parseFromString(text, 'application/xml');
+        if (doc.querySelector('parsererror')) throw new Error('parse error');
+    } catch(e) { throw new Error('Invalid XML file'); }
+
+    const result = { source: 'xml_upload' };
+    const get    = (tag) => doc.getElementsByTagName(tag)[0]?.textContent?.trim() || '';
+    const getAll = (tag) => [...doc.getElementsByTagName(tag)].map(el => el.textContent.trim()).filter(Boolean);
+
+    const isDC = text.includes('oai_dc') || text.includes('dc:title') || text.includes('purl.org/dc');
+    if (isDC) {
+        result.identifier      = get('dc:identifier') || get('identifier');
+        result.title           = get('dc:title') || get('title');
+        result.description     = get('dc:description') || get('description');
+        result.creator         = get('dc:creator') || get('creator');
+        result.license         = get('dc:rights') || get('rights');
+        result.formats         = getAll('dc:format').concat(getAll('format'));
+        result.access_url      = get('dc:identifier') || '';
+        result.provenance_date = get('dc:date') || get('date');
+    } else {
+        result.identifier      = get('identifier') || get('doi');
+        result.title           = get('title');
+        result.description     = get('description');
+        result.creator         = getAll('creatorName').join('; ') || getAll('creator').join('; ');
+        result.license         = get('rights') || get('rightsURI');
+        result.formats         = getAll('format');
+        result.access_url      = get('identifier') || '';
+        result.provenance_date = get('publicationYear') || get('date');
+    }
+
+    // Extract subjectScheme attributes
+    const subjectEls = doc.getElementsByTagName('subject');
+    const schemeVocabs = [];
+    for (let i = 0; i < subjectEls.length; i++) {
+        const scheme    = subjectEls[i].getAttribute('subjectScheme') || '';
+        const schemeURI = subjectEls[i].getAttribute('schemeURI') || subjectEls[i].getAttribute('schemeUri') || '';
+        const valueURI  = subjectEls[i].getAttribute('valueURI') || '';
+        if (scheme)    schemeVocabs.push(scheme.toLowerCase());
+        if (schemeURI) schemeVocabs.push(schemeURI.toLowerCase());
+        if (valueURI)  schemeVocabs.push(valueURI.toLowerCase());
+    }
+
+    const textVocabs  = detectVocabularies(text);
+    const schemeStr   = schemeVocabs.join(', ');
+    const schemeNames = detectVocabularies(schemeStr);
+    result.detected_vocabularies = mergeVocabs(textVocabs, schemeNames, schemeStr);
+
+    return result;
+}
+
+function parseTurtle(text) {
+    const result = { source: 'ttl_upload' };
+
+    // Extract @prefix declarations
+    const prefixMap = {};
+    const prefixRe  = /@prefix\s+(\S*:)\s*<([^>]+)>\s*\./gi;
+    let pm;
+    while ((pm = prefixRe.exec(text)) !== null) prefixMap[pm[1]] = pm[2];
+
+    // Extract subject URI
+    const subjectRe = /<([^>]+)>\s*(?:\r?\n\s*)?\s+(?:a|rdf:type)\b/;
+    const subjectM  = text.match(subjectRe);
+    const subjectURI = subjectM ? subjectM[1] : '';
+
+    // Robust predicate extractor — handles strings, typed literals, URI refs
+    function extractTTL(predicates) {
+        for (const pred of predicates) {
+            const esc = pred.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const reStr = new RegExp(esc + '\\s+"((?:[^"\\\\]|\\\\.)*)"', 'i');
+            const mStr  = text.match(reStr);
+            if (mStr && mStr[1]) return mStr[1].trim();
+
+            const reStr2 = new RegExp(esc + "\\s+'((?:[^'\\\\]|\\\\.)*)'", 'i');
+            const mStr2  = text.match(reStr2);
+            if (mStr2 && mStr2[1]) return mStr2[1].trim();
+
+            const reURI = new RegExp(esc + '\\s+<([^>]+)>', 'i');
+            const mURI  = text.match(reURI);
+            if (mURI && mURI[1]) return mURI[1].trim();
+        }
+        return '';
+    }
+
+    function extractAllTTL(predicates) {
+        const vals = [];
+        for (const pred of predicates) {
+            const esc = pred.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re  = new RegExp(esc + '\\s+"([^"]+)"', 'gi');
+            let m;
+            while ((m = re.exec(text)) !== null) vals.push(m[1].trim());
+            const reURI = new RegExp(esc + '\\s+<([^>]+)>', 'gi');
+            while ((m = reURI.exec(text)) !== null) vals.push(m[1].trim());
+        }
+        return [...new Set(vals)];
+    }
+
+    result.title           = extractTTL(['dcterms:title', 'dc:title', 'schema:name', 'rdfs:label', 'dct:title']);
+    result.description     = extractTTL(['dcterms:description', 'dc:description', 'schema:description', 'dct:description']);
+    result.license         = extractTTL(['dcterms:license', 'schema:license', 'cc:license', 'dct:license']);
+    result.provenance_date = extractTTL(['dcterms:issued', 'dcterms:created', 'dcterms:modified', 'schema:datePublished', 'dct:issued']);
+    result.formats         = extractAllTTL(['dcat:mediaType', 'dcat:format', 'dcterms:format', 'dc:format']);
+
+    // Creator: direct string/URI first, then blank node
+    const creatorDirect = extractTTL(['dcterms:creator', 'dc:creator', 'schema:creator', 'schema:author', 'dct:creator']);
+    if (creatorDirect) {
+        result.creator = creatorDirect;
+    } else {
+        const creatorPredList = ['dcterms:creator', 'dct:creator', 'dc:creator', 'schema:creator', 'schema:author'];
+        let creatorFound = '';
+        for (const pred of creatorPredList) {
+            const esc = pred.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const blankIdx = text.search(new RegExp(esc + '\\s*\\[', 'i'));
+            if (blankIdx === -1) continue;
+            const start = text.indexOf('[', blankIdx);
+            const end   = text.indexOf(']', start);
+            if (start === -1 || end === -1) continue;
+            const inner = text.slice(start + 1, end);
+            const nameRe = /(?:foaf:name|vcard:fn|vcard:hasName|schema:name|rdfs:label)\s+"([^"]+)"/i;
+            const m = inner.match(nameRe);
+            if (m && m[1]) { creatorFound = m[1].trim(); break; }
+        }
+        result.creator = creatorFound;
+    }
+
+    result.identifier  = extractTTL(['dcterms:identifier', 'schema:identifier', 'dct:identifier']) || subjectURI;
+    result.access_url  = extractTTL(['dcat:accessURL', 'schema:url', 'foaf:homepage']) || result.identifier || subjectURI;
+
+    // Vocabulary detection from raw text + prefix URIs + prefix keys
+    const prefixUriText = Object.values(prefixMap).join(' ');
+    const prefixKeyText = Object.keys(prefixMap).join(' ');
+    result.detected_vocabularies = mergeVocabs(
+        detectVocabularies(text),
+        detectVocabularies(prefixUriText),
+        prefixKeyText
+    );
+
+    return result;
+}
+
+// ── Helper functions shared with assess.html ───────────────────
+function extractTitle(titles) {
+    if (!titles) return '';
+    if (typeof titles === 'string') return titles;
+    if (Array.isArray(titles)) return titles[0]?.title || titles[0] || '';
+    return '';
+}
+function extractDesc(descs) {
+    if (!descs) return '';
+    if (typeof descs === 'string') return descs;
+    if (Array.isArray(descs)) return descs[0]?.description || descs[0] || '';
+    return '';
+}
+function extractCreator(creator) {
+    if (!creator) return '';
+    if (typeof creator === 'string') return creator;
+    if (creator.name) return creator.name;
+    if (Array.isArray(creator)) return creator.map(c => c.name || c).join('; ');
+    return '';
+}
+function extractCreatorDC(creators) {
+    if (!creators) return '';
+    if (typeof creators === 'string') return creators;
+    if (Array.isArray(creators)) return creators.map(c => c.name || c.creatorName || c).join('; ');
+    return '';
+}
+function extractLicense(rights) {
+    if (!rights) return '';
+    if (typeof rights === 'string') return rights;
+    if (Array.isArray(rights)) return rights[0]?.rightsUri || rights[0]?.rights || rights[0] || '';
+    return '';
+}
+function extractFormats(fmts) {
+    if (!fmts) return [];
+    if (typeof fmts === 'string') return [fmts];
+    if (Array.isArray(fmts)) {
+        return fmts.map(f => {
+            if (typeof f === 'string') return f;
+            return f.encodingFormat || f.fileFormat || f.format || '';
+        }).filter(Boolean);
+    }
+    return [];
+}
+
+// ── Profile management ─────────────────────────────────────────
 function switchComparTab(tab) {
     var isDoi = tab === 'doi';
     document.getElementById('panel-doi-cmp').style.display = isDoi ? 'block' : 'none';
     document.getElementById('panel-file-cmp').style.display = isDoi ? 'none' : 'block';
     document.getElementById('tab-doi-cmp').className = 'tab-btn ' + (isDoi ? 'active' : 'inactive');
     document.getElementById('tab-file-cmp').className = 'tab-btn ' + (isDoi ? 'inactive' : 'active');
-}
-
-function parseXML(xmlText) {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(xmlText, 'text/xml');
-    function getText(tag) {
-        var el = doc.getElementsByTagName(tag)[0];
-        return el ? el.textContent.trim() : null;
-    }
-    var identifier = getText('identifier') || getText('doi') || 'unknown';
-    var license = null;
-    var rightsEl = doc.getElementsByTagName('rights')[0];
-    if (rightsEl) {
-        license = rightsEl.getAttribute('rightsURI') || rightsEl.textContent.trim();
-    }
-    var formats = [];
-    var formatEls = doc.getElementsByTagName('format');
-    for (var i = 0; i < formatEls.length; i++) {
-        formats.push(formatEls[i].textContent.trim());
-    }
-
-        // extract vocabularies from subjectScheme attributes
-    var subjectEls = doc.getElementsByTagName('subject');
-    var schemeVocabs = [];
-    for (var i = 0; i < subjectEls.length; i++) {
-        var scheme = subjectEls[i].getAttribute('subjectScheme') ||
-                    subjectEls[i].getAttribute('schemeURI') || '';
-        if (scheme) schemeVocabs.push(scheme.toLowerCase());
-    }
-
-    // also scan raw XML text for namespace declarations and known vocab URIs
-    var xmlLower = xmlText.toLowerCase();
-    var xmlVocabMap = {
-        'dc:': 'Dublin Core',
-        'dcterms:': 'Dublin Core',
-        'purl.org/dc': 'Dublin Core',
-        'dcat:': 'DCAT',
-        'w3.org/ns/dcat': 'DCAT',
-        'skos:': 'SKOS',
-        'w3.org/2004/02/skos': 'SKOS',
-        'schema:': 'schema.org',
-        'schema.org': 'schema.org',
-        'foaf:': 'FOAF',
-        'xmlns.com/foaf': 'FOAF',
-        'agrovoc': 'AGROVOC',
-        'aims.fao.org': 'AGROVOC',
-        'meshb.nlm': 'MeSH',
-        'id.nlm.nih.gov/mesh': 'MeSH',
-        'ebi.ac.uk/ols/ontologies/envo': 'ENVO',
-        'purl.obolibrary.org/obo/envo': 'ENVO',
-        'ddialliance.org': 'DDI'
-    };
-
-    var xmlDetected = [];
-    Object.keys(xmlVocabMap).forEach(function(key) {
-        if (xmlLower.indexOf(key) !== -1) {
-            var vocab = xmlVocabMap[key];
-            if (xmlDetected.indexOf(vocab) === -1) {
-                xmlDetected.push(vocab);
-            }
-        }
-    });
-
-    // combine subjectScheme values and detected vocabs
-    var allDetected = schemeVocabs.concat(xmlDetected);
-    if (allDetected.length > 0) {
-        var unique = allDetected.filter(function(v, i) {
-            return allDetected.indexOf(v) === i;
-        });
-        result.detected_vocabularies = unique.join(', ');
-    }
-
-    return {
-        identifier: identifier,
-        title: getText('title'),
-        description: getText('description'),
-        creator: getText('creatorName') || getText('creator'),
-        license: license,
-        formats: formats,
-        provenance_date: getText('publicationYear') || getText('date'),
-        access_url: identifier.startsWith('10.') ? 'https://doi.org/' + identifier : null
-    };
-}
-
-function parseTurtle(text) {
-    var result = {
-        identifier: null, title: null, description: null,
-        creator: null, license: null, formats: [],
-        provenance_date: null, access_url: null
-    };
-
-    function getLiteral(predicate) {
-        var patterns = [
-            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"([^"]+)"(?:@\\w+)?', 'i'),
-            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+"""([\\s\\S]+?)"""', 'i'),
-        ];
-        for (var i = 0; i < patterns.length; i++) {
-            var match = text.match(patterns[i]);
-            if (match) return match[1].trim();
-        }
-        return null;
-    }
-
-    function getURI(predicate) {
-        var match = text.match(
-            new RegExp(predicate.replace(':', '\\s*:\\s*') + '\\s+<([^>]+)>', 'i')
-        );
-        return match ? match[1].trim() : null;
-    }
-
-    var lines = text.split('\n');
-    var subjectURI = null;
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (line.startsWith('@prefix') || line.startsWith('#') ||
-            line.startsWith('PREFIX') || line === '') continue;
-        var uriMatch = line.match(/^<(https?:\/\/[^>]+)>/);
-        if (uriMatch) { subjectURI = uriMatch[1]; break; }
-    }
-
-    result.title = getLiteral('dcterms:title') || getLiteral('dc:title') ||
-                   getLiteral('schema:name') || getLiteral('rdfs:label');
-    result.description = getLiteral('dcterms:description') ||
-                         getLiteral('dc:description') || getLiteral('schema:description');
-
-    var foafMatch = text.match(/foaf:name\s+"([^"]+)"/i);
-    if (foafMatch) {
-        result.creator = foafMatch[1];
-    } else {
-        result.creator = getLiteral('dcterms:creator') || getLiteral('dc:creator') ||
-                         getLiteral('schema:author') || getLiteral('dcterms:publisher');
-    }
-
-    result.license = getURI('dcterms:license') || getURI('dc:rights') ||
-                     getLiteral('dcterms:license') || getLiteral('dc:rights');
-    result.identifier = getLiteral('dcterms:identifier') || getLiteral('dc:identifier') ||
-                        getURI('owl:sameAs') || subjectURI;
-    result.provenance_date = getLiteral('dcterms:issued') || getLiteral('dcterms:created') ||
-                             getLiteral('dc:date');
-    result.access_url = getURI('dcat:landingPage') || subjectURI;
-
-    var formatMatches = text.match(/dcat:mediaType\s+"([^"]+)"/gi);
-    if (formatMatches) {
-        result.formats = formatMatches.map(function(m) {
-            var match = m.match(/dcat:mediaType\s+"([^"]+)"/i);
-            return match ? match[1] : '';
-        }).filter(Boolean);
-    }
-
-    if (!result.identifier) result.identifier = 'uploaded-turtle-file';
-    return result;
-}
-
-function parseJSON(jsonData) {
-    if (jsonData.data && jsonData.data.attributes) {
-        var attrs = jsonData.data.attributes;
-        var titles = attrs.titles || [];
-        var creators = attrs.creators || [];
-        var rights = attrs.rightsList || [];
-        var descs = attrs.descriptions || [];
-        return {
-            identifier: attrs.doi || 'unknown',
-            title: titles[0] ? titles[0].title : null,
-            description: descs[0] ? descs[0].description : null,
-            creator: creators[0] ? creators[0].name : null,
-            license: rights[0] ? (rights[0].rightsUri || rights[0].rightsURI) : null,
-            formats: attrs.formats || [],
-            provenance_date: attrs.published || null,
-            access_url: 'https://doi.org/' + (attrs.doi || '')
-        };
-    }
-    if (jsonData['@type'] || jsonData['@context']) {
-        var creators2 = jsonData.creator || jsonData.author || [];
-        if (!Array.isArray(creators2)) creators2 = [creators2];
-        var lic = jsonData.license;
-        if (typeof lic === 'object' && lic !== null) lic = lic['@id'] || lic.url;
-        var dist = jsonData.distribution || [];
-        if (!Array.isArray(dist)) dist = [dist];
-        var fmts = dist.map(function(d) {
-            return d.encodingFormat || d.fileFormat || '';
-        }).filter(Boolean);
-        return {
-            identifier: jsonData.identifier || jsonData['@id'] || 'unknown',
-            title: jsonData.name || jsonData.headline || null,
-            description: jsonData.description || null,
-            creator: creators2[0] ? (creators2[0].name || creators2[0]) : null,
-            license: lic || null,
-            formats: fmts,
-            provenance_date: jsonData.datePublished || jsonData.dateCreated || null,
-            access_url: jsonData.url || jsonData['@id'] || null
-        };
-    }
-    return {
-        identifier: jsonData.identifier || jsonData.doi || jsonData.id || 'unknown',
-        title: jsonData.title || jsonData.name || null,
-        description: jsonData.description || jsonData.abstract || null,
-        creator: jsonData.creator || jsonData.author || null,
-        license: jsonData.license || jsonData.rights || null,
-        formats: jsonData.formats ? jsonData.formats : (jsonData.format ? [jsonData.format] : []),
-        provenance_date: jsonData.publicationYear || jsonData.datePublished || null,
-        access_url: jsonData.url || null
-    };
 }
 
 async function loadProfiles() {
@@ -421,6 +494,7 @@ function toggleProfile(id) {
     }
 }
 
+// ── Comparison runner ──────────────────────────────────────────
 async function runComparison() {
     var isFile = document.getElementById('panel-file-cmp').style.display !== 'none';
     var doi = document.getElementById('compare-doi').value.trim();
@@ -442,17 +516,17 @@ async function runComparison() {
             return;
         }
         var text = await file.text();
-        if (ext === '.ttl') {
-            parsedFile = parseTurtle(text);
-        } else if (ext === '.xml' || ext === '.rdf') {
-            parsedFile = parseXML(text);
-        } else {
-            try {
-                parsedFile = parseJSON(JSON.parse(text));
-            } catch(e) {
-                showError('compare-message', 'Could not parse JSON file: ' + e.message);
-                return;
+        try {
+            if (ext === '.ttl') {
+                parsedFile = parseTurtle(text);
+            } else if (ext === '.xml' || ext === '.rdf') {
+                parsedFile = parseXML(text);
+            } else {
+                parsedFile = parseJSON(text);
             }
+        } catch(e) {
+            showError('compare-message', 'Could not parse file: ' + e.message);
+            return;
         }
         doi = parsedFile.identifier || file.name;
     } else {
@@ -495,7 +569,7 @@ async function runComparison() {
                 report = await response.json();
             } else {
                 report = await apiFetch(
-                    '/assess/' + doi + '?profile=' + encodeURIComponent(profile.domain)
+                    '/assess/' + encodeURIComponent(doi) + '?profile=' + encodeURIComponent(profile.domain)
                 );
             }
 
@@ -510,6 +584,7 @@ async function runComparison() {
     }
 }
 
+// ── Render results ─────────────────────────────────────────────
 function renderComparison(doi) {
     document.getElementById('compare-results').style.display = 'block';
     document.getElementById('compare-doi-label').textContent = 'Dataset: ' + doi;
@@ -571,9 +646,7 @@ function renderComparison(doi) {
     var allMetricIds = [];
     comparisonResults.forEach(function(r) {
         r.report.results.forEach(function(m) {
-            if (allMetricIds.indexOf(m.metric_id) === -1) {
-                allMetricIds.push(m.metric_id);
-            }
+            if (allMetricIds.indexOf(m.metric_id) === -1) allMetricIds.push(m.metric_id);
         });
     });
 
@@ -583,11 +656,8 @@ function renderComparison(doi) {
             if (!metric) return '<td>-</td>';
             return '<td class="status-' + metric.status + '">' + metric.status.toUpperCase() + '</td>';
         }).join('');
-
-        var firstMetric = comparisonResults[0].report.results.find(
-            function(m) { return m.metric_id === metricId; });
+        var firstMetric = comparisonResults[0].report.results.find(function(m) { return m.metric_id === metricId; });
         var desc = firstMetric ? firstMetric.description : metricId;
-
         return '<tr><td><strong>' + metricId + '</strong><br>' +
             '<span style="font-size:0.75rem;color:#666">' + desc + '</span></td>' +
             cells + '</tr>';
