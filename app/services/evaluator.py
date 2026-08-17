@@ -211,8 +211,9 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    all_required = (profile.required_metadata_fields +
-                    profile.custom_metadata_fields)
+    all_required = list(dict.fromkeys(
+    profile.required_metadata_fields + profile.custom_metadata_fields
+    ))
 
     if not all_required:
         return MetricResult(
@@ -246,7 +247,8 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         )
     if present:
         custom_missing = [f for f in missing
-                          if f in profile.custom_metadata_fields]
+                  if f in profile.custom_metadata_fields
+                  and f not in profile.required_metadata_fields]
         note = ""
         if custom_missing:
             note = (f" Note: {', '.join(custom_missing)} are domain-specific "
@@ -697,8 +699,9 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    all_fields = (profile.required_metadata_fields +
-                  profile.custom_metadata_fields)
+    all_required = list(dict.fromkeys(
+    profile.required_metadata_fields + profile.custom_metadata_fields
+    ))
     if not all_fields:
         all_fields = ["title", "description", "creator", "license"]
 
