@@ -212,7 +212,7 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
     all_required = list(dict.fromkeys(
-    profile.required_metadata_fields + profile.custom_metadata_fields
+        profile.required_metadata_fields + profile.custom_metadata_fields
     ))
 
     if not all_required:
@@ -247,8 +247,8 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         )
     if present:
         custom_missing = [f for f in missing
-                  if f in profile.custom_metadata_fields
-                  and f not in profile.required_metadata_fields]
+                          if f in profile.custom_metadata_fields
+                          and f not in profile.required_metadata_fields]
         note = ""
         if custom_missing:
             note = (f" Note: {', '.join(custom_missing)} are domain-specific "
@@ -259,8 +259,7 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="partial",
             description="Some required metadata fields are missing",
-            evidence=f"Present: {', '.join(present)} | "
-                f"Missing: {', '.join(missing)}",
+            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
             recommendation=f"Add missing fields: {', '.join(missing)}." + note
         )
     return MetricResult(
@@ -270,8 +269,7 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         status="fail",
         description="All required metadata fields are missing",
         evidence=f"Missing: {', '.join(missing)}",
-        recommendation=f"No required fields found. "
-            f"This profile requires: {', '.join(all_required)}"
+        recommendation=f"No required fields found. This profile requires: {', '.join(all_required)}"
     )
 
 
@@ -699,8 +697,8 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    all_required = list(dict.fromkeys(
-    profile.required_metadata_fields + profile.custom_metadata_fields
+    all_fields = list(dict.fromkeys(
+        profile.required_metadata_fields + profile.custom_metadata_fields
     ))
     if not all_fields:
         all_fields = ["title", "description", "creator", "license"]
@@ -730,8 +728,7 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="partial",
             description="Metadata missing some fields needed for reuse",
-            evidence=f"Present: {', '.join(present)} | "
-                f"Missing: {', '.join(missing)}",
+            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
             recommendation=f"Add missing fields: {', '.join(missing)}"
         )
     return MetricResult(
