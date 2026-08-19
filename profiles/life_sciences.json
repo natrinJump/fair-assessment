@@ -1,38 +1,29 @@
 {
-  "name": "Life Sciences Profile",
-  "domain": "life_sciences",
-  "accepted_identifiers": ["doi", "biosample", "genbank"],
-  "custom_identifiers": [
-    {
-      "name": "BioSample",
-      "match_type": "starts_with",
-      "value": "SAMN",
-      "description": "NCBI BioSample identifier"
-    },
-    {
-      "name": "GenBank",
-      "match_type": "starts_with",
-      "value": "NC_",
-      "description": "NCBI GenBank accession"
-    }
-  ],
-  "required_metadata_fields": ["title", "description", "creator", "license"],
-  "custom_metadata_fields": ["organism", "experimental_method"],
-  "check_discoverability": true,
-  "accepted_formats": ["rdf", "json-ld", "xml"],
-  "required_vocabulary": "MeSH",
-  "custom_vocabularies": [
-    {
-      "name": "MeSH",
-      "check_url": "https://meshb.nlm.nih.gov/",
-      "keywords": ["mesh", "gene ontology", "go:", "uniprot"],
-      "description": "Medical Subject Headings"
-    }
-  ],
-  "require_related_resources": true,
-  "accepted_licenses": ["cc-by", "cc0"],
-  "required_license": null,
-  "required_provenance_fields": ["creator", "provenance_date", "description"],
-  "community_standard": "Dublin Core",
-  "min_vocab_fairness_level": "standard"
+    "name": "Life Sciences Profile",
+    "domain": "life_sciences",
+    "accepted_identifiers": ["doi", "biosample", "genbank"],
+    "custom_identifiers": [],
+    "required_metadata_fields": [
+        "title", "description", "creator", "license"
+    ],
+    "custom_metadata_fields": [
+        "organism", "tissue_type", "assay_type", "experimental_method"
+    ],
+    "check_discoverability": true,
+    "accepted_formats": ["json-ld", "rdf", "xml", "csv"],
+    "required_vocabulary": "Gene Ontology",
+    "custom_vocabularies": [
+        {
+            "name": "Darwin Core",
+            "keywords": ["darwin core", "dwc:", "dwcterms:", "darwincore", "dwc"],
+            "check_url": "https://dwc.tdwg.org/",
+            "description": "Darwin Core standard for biodiversity and specimen data"
+        }
+    ],
+    "require_related_resources": false,
+    "accepted_licenses": ["cc-by", "cc0"],
+    "required_license": null,
+    "required_provenance_fields": ["creator", "provenance_date"],
+    "community_standard": "OBO Foundry",
+    "min_vocab_fairness_level": "standard"
 }
