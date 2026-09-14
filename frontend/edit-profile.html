@@ -151,7 +151,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -446,21 +446,33 @@ let currentModalType = null;
 const savedState = JSON.parse(
     localStorage.getItem('profileFullState_' + profile.name) || 'null');
 
+// Merge required + custom metadata fields so all appear in the UI
+function mergeUnique(...arrays) {
+    const seen = new Set();
+    const result = [];
+    for (const arr of arrays) {
+        for (const item of (arr || [])) {
+            if (!seen.has(item)) { seen.add(item); result.push(item); }
+        }
+    }
+    return result;
+}
+
 let allIdentifiers = savedState?.all_identifiers || [...(profile.accepted_identifiers || [])];
 let allFormats     = savedState?.all_formats     || [...(profile.accepted_formats || [])];
-let allMetadata    = savedState?.all_metadata    || [...(profile.required_metadata_fields || [])];
+let allMetadata    = savedState?.all_metadata    || mergeUnique(profile.required_metadata_fields, profile.custom_metadata_fields);
 let allLicenses    = savedState?.all_licenses    || [...(profile.accepted_licenses || [])];
 let allProvenance  = savedState?.all_provenance  || [...(profile.required_provenance_fields || ['creator', 'provenance_date'])];
 
 let activeIdentifiers = [...(profile.accepted_identifiers || [])];
 let activeFormats     = [...(profile.accepted_formats || [])];
-let activeMetadata    = [...(profile.required_metadata_fields || [])];
+let activeMetadata    = mergeUnique(profile.required_metadata_fields, profile.custom_metadata_fields);
 let activeLicenses    = [...(profile.accepted_licenses || [])];
 let activeProvenance  = [...(profile.required_provenance_fields || ['creator', 'provenance_date'])];
 
 const baselineIdentifiers = [...(profile.accepted_identifiers || [])];
 const baselineFormats     = [...(profile.accepted_formats || [])];
-const baselineMetadata    = [...(profile.required_metadata_fields || [])];
+const baselineMetadata    = mergeUnique(profile.required_metadata_fields, profile.custom_metadata_fields);
 const baselineLicenses    = [...(profile.accepted_licenses || [])];
 const baselineProvenance  = [...(profile.required_provenance_fields || ['creator', 'provenance_date'])];
 
@@ -708,12 +720,12 @@ async function restoreProfile() {
         // Reset all arrays
         allIdentifiers = [...(restored.accepted_identifiers || [])];
         allFormats     = [...(restored.accepted_formats || [])];
-        allMetadata    = [...(restored.required_metadata_fields || [])];
+        allMetadata    = mergeUnique(restored.required_metadata_fields, restored.custom_metadata_fields);
         allLicenses    = [...(restored.accepted_licenses || [])];
         allProvenance  = [...(restored.required_provenance_fields || [])];
         activeIdentifiers = [...allIdentifiers];
         activeFormats     = [...allFormats];
-        activeMetadata    = [...allMetadata];
+        activeMetadata    = mergeUnique(restored.required_metadata_fields, restored.custom_metadata_fields);
         activeLicenses    = [...allLicenses];
         activeProvenance  = [...allProvenance];
         customIdentifiers  = [...(restored.custom_identifiers || [])];
