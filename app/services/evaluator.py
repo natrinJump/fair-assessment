@@ -475,8 +475,11 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             evidence=f"Current format: {', '.join(formats)}",
             recommendation=f"Format '{', '.join(formats)}' not accepted. "
                 f"This profile requires one of: "
-                f"{', '.join(profile.accepted_formats)}"
-        )
+                f"{', '.join(profile.accepted_formats)}. "
+                f"Note: if data files are packaged as an archive "
+                f"(e.g. zip), declare the format of the files "
+                f"inside the archive in the dataset metadata."
+    )
     return MetricResult(
         metric_id="I1",
         principle="I",
