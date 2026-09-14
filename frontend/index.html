@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FAIR Assessment Tool</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='15' fill='%231a73e8'/%3E%3Ctext y='68' x='50' text-anchor='middle' font-size='42' font-weight='bold' font-family='Arial,sans-serif' fill='white'%3EPF%3C/text%3E%3C/svg%3E">
+    <title>ProFAIR</title>
     <link rel="stylesheet" href="style.css">
     <style>
         .profile-card.create-new {
@@ -14,9 +15,7 @@
             justify-content: center;
             min-height: 80px;
         }
-        .profile-card.create-new:hover {
-            background: #e8f0fe;
-        }
+        .profile-card.create-new:hover { background: #e8f0fe; }
         .profile-card.create-new .plus {
             font-size: 1.5rem;
             margin-bottom: 0.25rem;
@@ -48,9 +47,7 @@
             margin-bottom: 0.25rem;
             color: #444;
         }
-        .tag-input-row {
-            display: flex; gap: 0.5rem;
-        }
+        .tag-input-row { display: flex; gap: 0.5rem; }
         .tag-input-row input { flex: 1; margin-bottom: 0; }
         .tags {
             display: flex; flex-wrap: wrap;
@@ -67,28 +64,38 @@
             color: #1a73e8; cursor: pointer;
             font-size: 0.75rem; padding: 0;
         }
+        .btn-green {
+            border: 1px solid #0f9d58;
+            color: #0f9d58;
+            background: white;
+            padding: 0.6rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .btn-green:hover { background: #e6f4ea; }
     </style>
 </head>
 <body>
 
 <nav class="navbar">
-    <h1>FAIR Assessment Tool</h1>
-    <a href="index.html"
-    style="font-weight:600;border-bottom:2px solid white;padding-bottom:2px">
-    Profiles
-    </a>
+    <h1>ProFAIR</h1>
+    <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
     <a href="about.html">About</a>
+    <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
+        &#9889; Free hosting &mdash; may take a moment to wake up
+    </span>
 </nav>
 
 <div class="container">
     <div class="card">
         <h2>Select a Profile</h2>
         <p style="font-size:0.875rem;color:#666;margin-bottom:1rem">
-            Choose an existing domain profile or create your own based on your
-            community's FAIR requirements.
+            Choose an existing domain profile or create your own based on
+            your community's FAIR requirements.
         </p>
         <div class="profile-grid" id="profile-grid">
             <div class="loading">Loading profiles...</div>
@@ -99,23 +106,30 @@
             <ul id="summary-list"></ul>
         </div>
 
-        <div style="display:flex; gap:0.75rem" id="action-buttons" style="display:none">
+        <div id="action-buttons" style="display:none;flex-wrap:wrap;gap:0.75rem">
             <button type="button" class="btn btn-primary"
                 onclick="continueToAssess()">Continue</button>
             <button type="button" class="btn btn-secondary"
                 onclick="editSelected()">Edit Profile</button>
-            <button type="button" class="btn btn-secondary"
-    onclick="exportTurtle()"
-    style="border-color:#0f9d58;color:#0f9d58">
-    Export FIP as Turtle
-</button>
+            <button type="button" class="btn-green"
+                onclick="exportTurtle()">↓ Export as Turtle (FIP)</button>
             <button type="button" class="btn btn-danger"
                 onclick="deleteSelected()"
                 id="delete-btn" style="display:none">Delete Profile</button>
         </div>
+
+        <div style="margin-top:1rem">
+            <input type="file" id="turtle-import" accept=".ttl"
+                style="display:none" onchange="importTurtle(event)">
+            <button type="button" class="btn-green"
+                onclick="document.getElementById('turtle-import').click()">
+                ↑ Import Profile from Turtle (FIP)
+            </button>
+        </div>
     </div>
 </div>
 
+<!-- Create Profile Modal -->
 <div class="modal-backdrop" id="create-modal">
     <div class="modal-box">
         <h3>Create New Profile</h3>
@@ -123,45 +137,50 @@
 
         <div class="form-row">
             <label>Profile Name *</label>
-            <input type="text" id="new-name" placeholder="e.g. My Custom Profile">
+            <input type="text" id="new-name"
+                placeholder="e.g. My Custom Profile">
         </div>
         <div class="form-row">
             <label>Domain *</label>
             <input type="text" id="new-domain"
                 placeholder="e.g. marine_biology, climate_science">
         </div>
-
         <div class="form-row">
             <label>Accepted Identifier Types</label>
             <div class="tag-input-row">
-                <input type="text" id="new-id-input" placeholder="e.g. doi, ark, handle">
+                <input type="text" id="new-id-input"
+                    placeholder="e.g. doi, ark, handle">
                 <button type="button" class="btn btn-secondary"
-                    onclick="addTag('identifiers', 'new-id-input', 'tags-id')">Add</button>
+                    onclick="addTag('identifiers','new-id-input','tags-id')">
+                    Add
+                </button>
             </div>
             <div class="tags" id="tags-id"></div>
         </div>
-
         <div class="form-row">
             <label>Required Metadata Fields</label>
             <div class="tag-input-row">
                 <input type="text" id="new-meta-input"
                     placeholder="e.g. title, license, creator">
                 <button type="button" class="btn btn-secondary"
-                    onclick="addTag('metadata', 'new-meta-input', 'tags-meta')">Add</button>
+                    onclick="addTag('metadata','new-meta-input','tags-meta')">
+                    Add
+                </button>
             </div>
             <div class="tags" id="tags-meta"></div>
         </div>
-
         <div class="form-row">
             <label>Accepted File Formats</label>
             <div class="tag-input-row">
-                <input type="text" id="new-fmt-input" placeholder="e.g. csv, json-ld, rdf">
+                <input type="text" id="new-fmt-input"
+                    placeholder="e.g. csv, json-ld, rdf">
                 <button type="button" class="btn btn-secondary"
-                    onclick="addTag('formats', 'new-fmt-input', 'tags-fmt')">Add</button>
+                    onclick="addTag('formats','new-fmt-input','tags-fmt')">
+                    Add
+                </button>
             </div>
             <div class="tags" id="tags-fmt"></div>
         </div>
-
         <div class="form-row">
             <label>Required Vocabulary (optional)</label>
             <input type="text" id="new-vocab"
@@ -169,10 +188,12 @@
         </div>
         <div class="form-row">
             <label>Required License (optional)</label>
-            <input type="text" id="new-license" placeholder="e.g. CC-BY, CC0">
+            <input type="text" id="new-license"
+                placeholder="e.g. CC-BY, CC0">
         </div>
 
-        <div style="display:flex;gap:0.75rem;margin-top:1rem;justify-content:flex-end">
+        <div style="display:flex;gap:0.75rem;margin-top:1rem;
+            justify-content:flex-end">
             <button type="button" class="btn btn-secondary"
                 onclick="closeCreateModal()">Cancel</button>
             <button type="button" class="btn btn-primary"
@@ -232,37 +253,17 @@ function selectProfile(id) {
             ? `<li>Vocabulary: ${selectedProfile.required_vocabulary}</li>` : ''}
         ${selectedProfile.required_license
             ? `<li>License: ${selectedProfile.required_license}</li>` : ''}
+        ${selectedProfile.community_standard
+            ? `<li>Community standard: ${selectedProfile.community_standard}</li>` : ''}
     `;
 
     document.getElementById('action-buttons').style.display = 'flex';
-    const isDefault = ['generic','agriculture','life_sciences',
-        'environmental','social_sciences'].includes(selectedProfile.domain);
+    const isDefault = ['generic', 'agriculture', 'life_sciences',
+        'environmental', 'social_sciences'].includes(selectedProfile.domain);
     document.getElementById('delete-btn').style.display =
         isDefault ? 'none' : 'inline-block';
 
     localStorage.setItem('selectedProfile', JSON.stringify(selectedProfile));
-}
-
-async function exportTurtle() {
-    if (!selectedProfile) {
-        alert('Please select a profile first');
-        return;
-    }
-    try {
-        const response = await fetch(
-            API + '/profiles/' +
-            encodeURIComponent(selectedProfile.name) +
-            '/export/turtle'
-        );
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = selectedProfile.name.replace(/ /g, '_') + '_FIP.ttl';
-        a.click();
-    } catch(e) {
-        alert('Export failed: ' + e.message);
-    }
 }
 
 function continueToAssess() {
@@ -294,6 +295,101 @@ async function deleteSelected() {
     }
 }
 
+async function exportTurtle() {
+    if (!selectedProfile) {
+        alert('Please select a profile first');
+        return;
+    }
+    try {
+        const response = await fetch(
+            API + '/profiles/' +
+            encodeURIComponent(selectedProfile.name) +
+            '/export/turtle'
+        );
+        if (!response.ok) throw new Error('Export failed');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedProfile.name.replace(/ /g, '_') + '_FIP.ttl';
+        a.click();
+    } catch(e) {
+        alert('Export failed: ' + e.message);
+    }
+}
+
+async function importTurtle(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const text = await file.text();
+
+    const getName = t => {
+        const m = t.match(/dcterms:title\s+"([^"]+)"/);
+        return m ? m[1] : null;
+    };
+    const getDomain = t => {
+        const m = t.match(/dcterms:subject\s+"([^"]+)"/);
+        return m ? m[1] : null;
+    };
+    const getValuesByTag = (t, tag) => {
+        const vals = [];
+        const regex = new RegExp(
+            'fip:principle-tag\\s+"' + tag +
+            '"[\\s\\S]*?rdfs:label\\s+"([^"(]+)"',
+            'g'
+        );
+        let match;
+        while ((match = regex.exec(t)) !== null) {
+            const val = match[1].trim().toLowerCase();
+            if (val && !vals.includes(val)) vals.push(val);
+        }
+        return vals;
+    };
+
+    const name = getName(text);
+    const domain = getDomain(text);
+
+    if (!name || !domain) {
+        alert('Could not parse Turtle file — missing title or domain.');
+        document.getElementById('turtle-import').value = '';
+        return;
+    }
+
+    const data = {
+        name: name + ' (imported)',
+        domain: domain + '_imported',
+        accepted_identifiers: getValuesByTag(text, 'F1'),
+        required_metadata_fields: getValuesByTag(text, 'F2'),
+        accepted_formats: getValuesByTag(text, 'I1'),
+        accepted_licenses: getValuesByTag(text, 'R1.1'),
+        required_provenance_fields: getValuesByTag(text, 'R1.2'),
+        custom_identifiers: [],
+        custom_metadata_fields: [],
+        custom_vocabularies: [],
+        check_discoverability: true,
+        require_related_resources: false,
+        required_vocabulary: null,
+        required_license: null,
+        community_standard: null,
+    };
+
+    try {
+        const created = await apiFetch('/profiles', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        alert('Profile imported as "' + created.name + '"');
+        profiles = await apiFetch('/profiles');
+        renderGrid();
+        setTimeout(() => selectProfile(created.id), 100);
+    } catch(e) {
+        alert('Import failed: ' + e.message);
+    }
+
+    document.getElementById('turtle-import').value = '';
+}
+
 function openCreateModal() {
     newProfileData = { identifiers: [], metadata: [], formats: [] };
     document.getElementById('new-name').value = '';
@@ -315,9 +411,7 @@ function addTag(type, inputId, tagsId) {
     const input = document.getElementById(inputId);
     const val = input.value.trim().toLowerCase();
     if (!val) return;
-    if (newProfileData[type].includes(val)) {
-        input.value = ''; return;
-    }
+    if (newProfileData[type].includes(val)) { input.value = ''; return; }
     newProfileData[type].push(val);
     input.value = '';
     renderTags(type, tagsId);
@@ -338,7 +432,8 @@ function renderTags(type, tagsId) {
     container.innerHTML = newProfileData[type].map(v => `
         <span class="tag">
             ${v}
-            <button type="button" onclick="removeTag('${type}', '${v}', '${tagsId}')">×</button>
+            <button type="button"
+                onclick="removeTag('${type}','${v}','${tagsId}')">×</button>
         </span>
     `).join('');
 }
@@ -367,8 +462,18 @@ async function createProfile() {
                 ? newProfileData.metadata
                 : ['title', 'description', 'creator', 'license'],
             accepted_formats: newProfileData.formats,
-            required_vocabulary: document.getElementById('new-vocab').value || null,
-            required_license: document.getElementById('new-license').value || null,
+            required_vocabulary:
+                document.getElementById('new-vocab').value || null,
+            required_license:
+                document.getElementById('new-license').value || null,
+            custom_identifiers: [],
+            custom_metadata_fields: [],
+            custom_vocabularies: [],
+            accepted_licenses: [],
+            required_provenance_fields: ['creator', 'provenance_date'],
+            check_discoverability: true,
+            require_related_resources: false,
+            community_standard: null,
         };
         const created = await apiFetch('/profiles', {
             method: 'POST',
