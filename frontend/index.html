@@ -83,11 +83,10 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -517,6 +516,24 @@ document.getElementById('new-fmt-input').addEventListener('keydown', e => {
 });
 
 loadProfiles();
+</script>
+<script id="active_nav_script">
+(function() {
+    var page = window.location.pathname.split('/').pop() || 'index.html';
+    var links = document.querySelectorAll('.navbar a');
+    links.forEach(function(a) {
+        var href = a.getAttribute('href');
+        if (href === page || (page === '' && href === 'index.html')) {
+            a.style.fontWeight = '600';
+            a.style.borderBottom = '2px solid white';
+            a.style.paddingBottom = '2px';
+        } else {
+            a.style.fontWeight = '';
+            a.style.borderBottom = '';
+            a.style.paddingBottom = '';
+        }
+    });
+})();
 </script>
 </body>
 </html>
