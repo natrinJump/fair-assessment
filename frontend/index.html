@@ -86,7 +86,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -211,6 +211,15 @@ let newProfileData = { identifiers: [], metadata: [], formats: [] };
 async function loadProfiles() {
     try {
         profiles = await apiFetch('/profiles');
+        // Sort: predefined profiles first in preferred order, custom profiles after
+        const preferredOrder = ['generic', 'agriculture', 'life_sciences', 'environmental', 'social_sciences'];
+        profiles.sort(function(a, b) {
+            var ai = preferredOrder.indexOf(a.domain);
+            var bi = preferredOrder.indexOf(b.domain);
+            if (ai === -1) ai = 999;
+            if (bi === -1) bi = 999;
+            return ai - bi;
+        });
         renderGrid();
     } catch(e) {
         document.getElementById('profile-grid').innerHTML =
