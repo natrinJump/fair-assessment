@@ -94,7 +94,7 @@
     <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        &#9889; Free hosting &mdash; may take a moment to wake up
+        Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -710,21 +710,22 @@ function renderReport(report) {
                     display:flex;justify-content:space-between;align-items:center">
                     <span>${p} — ${principleNames[p]}</span>
                 </div>
-                ${pResults.map(r => `
+                ${pResults.map(r => {
+                    const statusTip =
+                        r.status === 'pass'    ? 'Pass: this metric is fully satisfied' :
+                        r.status === 'partial' ? 'Partial: partially satisfied — earns 50% of the metric weight' :
+                                                 'Fail: not satisfied — earns 0% of the metric weight';
+                    const priorityTip =
+                        r.priority === 'essential' ? 'Essential (weight 1.0): highest importance — FAIRness is difficult to achieve without this' :
+                        r.priority === 'important' ? 'Important (weight 0.75): significantly improves FAIRness when satisfied' :
+                                                     'Useful (weight 0.5): nice to have — contributes to FAIRness but not critical';
+                    return `
                     <div class="metric-result ${r.status}">
                         <div class="metric-header">
                             <span class="metric-id">${r.metric_id}</span>
                             <span class="metric-desc">${r.description}</span>
-                            <span class="badge ${r.status}" title="${
-                                r.status === 'pass'    ? 'Pass: this metric is fully satisfied' :
-                                r.status === 'partial' ? 'Partial: partially satisfied — earns 50% of the metric weight' :
-                                                         'Fail: not satisfied — earns 0% of the metric weight'
-                            }">${r.status}</span>
-                            <span class="badge ${r.priority}" title="${
-                                r.priority === 'essential' ? 'Essential (weight 1.0): highest importance — FAIRness is difficult to achieve without this' :
-                                r.priority === 'important' ? 'Important (weight 0.75): significantly improves FAIRness when satisfied' :
-                                                             'Useful (weight 0.5): nice to have — contributes to FAIRness but not critical'
-                            } · See About page for full scoring details">${r.priority}</span>
+                            <span class="badge ${r.status}" title="${statusTip}">${r.status}</span>
+                            <span class="badge ${r.priority}" title="${priorityTip}">${r.priority}</span>
                         </div>
                         ${r.evidence
                             ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
@@ -733,7 +734,7 @@ function renderReport(report) {
                             ? `<div class="metric-recommendation">→ ${r.recommendation}</div>`
                             : ''}
                     </div>
-                `).join('')}
+                `;}).join('')}
             </div>
         `;
     }).join('');
