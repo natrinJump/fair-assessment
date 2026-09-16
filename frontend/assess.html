@@ -90,11 +90,11 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -187,7 +187,13 @@
                 </div>
             </div>
 
-            <h3 style="font-size:0.9rem;font-weight:600;margin:1rem 0 0.75rem">Metric Details:</h3>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:1rem 0 0.75rem">
+                <h3 style="font-size:0.9rem;font-weight:600;margin:0">Metric Details:</h3>
+                <a href="about.html" style="font-size:0.75rem;color:#1a73e8;text-decoration:none"
+                    title="Learn about metric weights, priority levels and scoring">
+                    &#9432; What do these badges mean?
+                </a>
+            </div>
             <div id="metric-results"></div>
 
             <hr class="section-divider" style="margin:1rem 0">
@@ -700,16 +706,25 @@ function renderReport(report) {
             <div style="margin-bottom:1rem">
                 <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;
                     letter-spacing:0.05em;color:#1a73e8;margin-bottom:0.5rem;
-                    padding:0.3rem 0.5rem;background:#e8f0fe;border-radius:4px">
-                    ${p} — ${principleNames[p]}
+                    padding:0.3rem 0.5rem;background:#e8f0fe;border-radius:4px;
+                    display:flex;justify-content:space-between;align-items:center">
+                    <span>${p} — ${principleNames[p]}</span>
                 </div>
                 ${pResults.map(r => `
                     <div class="metric-result ${r.status}">
                         <div class="metric-header">
                             <span class="metric-id">${r.metric_id}</span>
                             <span class="metric-desc">${r.description}</span>
-                            <span class="badge ${r.status}">${r.status}</span>
-                            <span class="badge ${r.priority}">${r.priority}</span>
+                            <span class="badge ${r.status}" title="${
+                                r.status === 'pass'    ? 'Pass: this metric is fully satisfied' :
+                                r.status === 'partial' ? 'Partial: partially satisfied — earns 50% of the metric weight' :
+                                                         'Fail: not satisfied — earns 0% of the metric weight'
+                            }">${r.status}</span>
+                            <span class="badge ${r.priority}" title="${
+                                r.priority === 'essential' ? 'Essential (weight 1.0): highest importance — FAIRness is difficult to achieve without this' :
+                                r.priority === 'important' ? 'Important (weight 0.75): significantly improves FAIRness when satisfied' :
+                                                             'Useful (weight 0.5): nice to have — contributes to FAIRness but not critical'
+                            } · See About page for full scoring details">${r.priority}</span>
                         </div>
                         ${r.evidence
                             ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
