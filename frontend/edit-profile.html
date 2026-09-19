@@ -259,7 +259,8 @@
         </div>
         <div class="principle-desc">
             Which controlled vocabularies metadata should reference.
-            The system uses a two-layer check: vocabulary presence, then vocabulary FAIRness level.
+            The system uses a two-layer check: vocabulary presence, then vocabulary FAIRness level. Required vocabulary</strong> is the primary 
+            community standard. If not detected, I2 returns fail or partial. <strong>Custom vocabularies</strong> are additional vocabularies your community accepts.  Finding one improves the result but not finding one  does not penalise.
         </div>
         <div class="configurable-block">
             <label>Required vocabulary:</label>
@@ -674,6 +675,10 @@ function saveModalItem() {
 
 // ── Save / Restore ─────────────────────────────────────────────
 async function saveProfile() {
+    const vocabInput = document.getElementById('vocabulary-input').value.trim();
+    if (!vocabInput) {
+        document.getElementById('min-vocab-level').value = 'none';
+    }
     validateProfile();
     try {
         const updated = {
@@ -756,7 +761,12 @@ document.getElementById('community-standard').value     = profile.community_stan
 document.getElementById('check-discoverability').checked = profile.check_discoverability !== false;
 document.getElementById('require-related').checked       = profile.require_related_resources === true;
 document.getElementById('min-vocab-level').value         = profile.min_vocab_fairness_level || 'none';
-
+// Auto-reset vocab FAIR level to none when required vocabulary is cleared
+document.getElementById('vocabulary-input').addEventListener('input', function() {
+    if (this.value.trim() === '') {
+        document.getElementById('min-vocab-level').value = 'none';
+    }
+});
 renderAll();
 validateProfile();
 
