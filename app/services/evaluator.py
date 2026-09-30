@@ -214,17 +214,29 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     all_required = list(dict.fromkeys(
         profile.required_metadata_fields + profile.custom_metadata_fields
     ))
-
+ 
     if not all_required:
+        # Even with no required fields, check DCAT if profile requires it
+        if getattr(profile, 'require_dcat_properties', False):
+            dcat_found = metadata.custom.get("_dcat_properties", "")
+            if not dcat_found:
+                return MetricResult(
+                    metric_id="F2", principle="F", priority="essential",
+                    status="partial",
+                    description="No required fields configured but DCAT/Dublin "
+                                "Core RDF properties not detected",
+                    evidence="No DCAT properties found in landing page metadata",
+                    recommendation="Add DCAT or Dublin Core RDF properties "
+                                   "such as dct:title, dct:description, "
+                                   "dcat:accessURL to your metadata"
+                )
         return MetricResult(
-            metric_id="F2",
-            principle="F",
-            priority="essential",
+            metric_id="F2", principle="F", priority="essential",
             status="pass",
             description="No specific metadata fields required by this profile",
             evidence="No required fields configured"
         )
-
+ 
     missing = []
     present = []
     for field in all_required:
@@ -235,12 +247,12 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             present.append(field)
         else:
             missing.append(field)
-
-    if getattr(profile, 'require_dcat_properties', False):
-        dcat_found = metadata.custom.get("_dcat_properties", "")
-        if not dcat_found:
-            # DCAT properties required but not found — downgrade pass to partial
-            if not missing:
+ 
+    if not missing:
+        # All required fields present — now check DCAT if profile requires it
+        if getattr(profile, 'require_dcat_properties', False):
+            dcat_found = metadata.custom.get("_dcat_properties", "")
+            if not dcat_found:
                 return MetricResult(
                     metric_id="F2", principle="F", priority="essential",
                     status="partial",
@@ -251,16 +263,13 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                                    "such as dct:title, dct:description, "
                                    "dcat:accessURL to your metadata"
                 )
-
-    if not missing:
         return MetricResult(
-            metric_id="F2",
-            principle="F",
-            priority="essential",
+            metric_id="F2", principle="F", priority="essential",
             status="pass",
             description="All required metadata fields are present",
             evidence=f"Present: {', '.join(present)}"
         )
+ 
     if present:
         custom_missing = [f for f in missing
                           if f in profile.custom_metadata_fields
@@ -270,23 +279,22 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             note = (f" Note: {', '.join(custom_missing)} are domain-specific "
                     f"fields that may not be exposed by the repository API.")
         return MetricResult(
-            metric_id="F2",
-            principle="F",
-            priority="essential",
+            metric_id="F2", principle="F", priority="essential",
             status="partial",
             description="Some required metadata fields are missing",
-            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
+            evidence=f"Present: {', '.join(present)} | "
+                     f"Missing: {', '.join(missing)}",
             recommendation=f"Add missing fields: {', '.join(missing)}." + note
         )
     return MetricResult(
-        metric_id="F2",
-        principle="F",
-        priority="essential",
+        metric_id="F2", principle="F", priority="essential",
         status="fail",
         description="All required metadata fields are missing",
         evidence=f"Missing: {', '.join(missing)}",
-        recommendation=f"No required fields found. This profile requires: {', '.join(all_required)}"
+        recommendation=f"No required fields found. "
+                       f"This profile requires: {', '.join(all_required)}"
     )
+ 
 
 
 def check_f3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
@@ -481,18 +489,18 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             evidence=f"Format detected: {', '.join(matched)}"
         )
  
-    # FAIR-Checker style: check if RDF/JSON-LD was found on landing page
+    # FAIR-Checker style: check if JSON-LD was found on landing page
     if getattr(profile, 'check_rdf_triples', False):
         jsonld_vocabs = metadata.custom.get("_jsonld_vocabularies", "")
-        has_jsonld = bool(jsonld_vocabs)
+        jsonld_fmt = metadata.custom.get("_jsonld_format", "")
+        has_jsonld = bool(jsonld_vocabs or jsonld_fmt)
         if has_jsonld:
             return MetricResult(
                 metric_id="I1", principle="I", priority="important",
                 status="partial",
-                description="JSON-LD detected on landing page but no "
-                            "format declared in repository metadata",
-                evidence="JSON-LD metadata found via content negotiation "
-                         "on landing page",
+                description="JSON-LD metadata detected on landing page but "
+                            "no format declared in repository metadata",
+                evidence="JSON-LD found via content negotiation on landing page",
                 recommendation="Declare the data format explicitly in "
                                "the repository metadata record"
             )
@@ -690,10 +698,9 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     min_auth = getattr(profile, 'min_url_authorities', 0)
     if min_auth > 0:
         all_urls = re.findall(r'https?://([^/\s"\'\\]+)', search)
-        # Extract just the domain from each URL
         domains = set()
         for url in all_urls:
-            domain = url.split('/')[0].replace('\\\\', '')
+            domain = url.split('/')[0]
             if domain:
                 domains.add(domain)
         if len(domains) <= min_auth:

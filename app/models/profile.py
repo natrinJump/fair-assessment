@@ -28,19 +28,28 @@ class Profile(BaseModel):
     required_metadata_fields: list[str] = []
     custom_metadata_fields: list[str] = []
 
+    # F2 — FAIR-Checker style: require DCAT/Dublin Core RDF properties
+    require_dcat_properties: bool = False
+
     # F4 — discoverability
     check_discoverability: bool = True
 
     # I1 — formats
     accepted_formats: list[str] = []
 
+    # I1 — FAIR-Checker style: pass if RDF/JSON-LD detected on landing page
+    check_rdf_triples: bool = False
+
     # I2 — vocabularies
     required_vocabulary: Optional[str] = None
     custom_vocabularies: list[dict] = []
-    min_vocab_fairness_level: str = "none"  # ← MUST BE HERE inside the class
+    min_vocab_fairness_level: str = "none"
 
     # I3 — qualified references
     require_related_resources: bool = False
+
+    # I3 — FAIR-Checker style: fail if fewer than N distinct URL domains
+    min_url_authorities: int = 0
 
     # R1.1 — licenses
     accepted_licenses: list[str] = []
