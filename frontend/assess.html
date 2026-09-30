@@ -643,10 +643,10 @@ async function loadProfiles() {
         const profiles = await apiFetch('/profiles');
         const select   = document.getElementById('profile-select');
         select.innerHTML = profiles.map(p =>
-            `<option value="${p.domain}">${p.name}</option>`
+            `<option value="${p.name}">${p.name}</option>`
         ).join('');
         const saved = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
-        if (saved.domain) select.value = saved.domain;
+        if (saved.name) select.value = saved.name;
     } catch(e) {
         console.error('Could not load profiles', e);
     }

@@ -550,13 +550,13 @@ async function runComparison() {
         comparisonResults = [];
         for (var i = 0; i < selectedProfiles.length; i++) {
             var profileId = selectedProfiles[i];
-            var profile = profiles.find(function(p) { return p.id === profileId; });
+            var profile = profiles.find(function(p) { return String(p.id) === String(profileId); });
             if (!profile) continue;
 
             var report;
             if (isFile) {
                 var response = await fetch(
-                    API + '/assess/metadata?profile=' + encodeURIComponent(profile.domain),
+                    API + '/assess/metadata?profile=' + encodeURIComponent(profile.name),
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -570,7 +570,7 @@ async function runComparison() {
                 report = await response.json();
             } else {
                 report = await apiFetch(
-                    '/assess/' + encodeURIComponent(doi) + '?profile=' + encodeURIComponent(profile.domain)
+                    '/assess/' + encodeURIComponent(doi) + '?profile=' + encodeURIComponent(profile.name)
                 );
             }
 
