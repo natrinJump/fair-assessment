@@ -86,7 +86,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -470,14 +470,18 @@ async function importTurtle(event) {
 }
 
 function openCreateModal() {
-    newProfileData = { identifiers: [], metadata: [], formats: [] };
+    newProfileData = { identifiers: [], metadata: [], customMetadata: [], formats: [], licenses: [] };
     document.getElementById('new-name').value = '';
     document.getElementById('new-domain').value = '';
     document.getElementById('new-vocab').value = '';
-    document.getElementById('new-license').value = '';
+    document.getElementById('new-vocab-level').value = 'none';
+    document.getElementById('new-required-license').value = '';
+    document.getElementById('new-community-standard').value = '';
     document.getElementById('tags-id').innerHTML = '';
     document.getElementById('tags-meta').innerHTML = '';
+    document.getElementById('tags-custom-meta').innerHTML = '';
     document.getElementById('tags-fmt').innerHTML = '';
+    document.getElementById('tags-licenses').innerHTML = '';
     document.getElementById('create-message').innerHTML = '';
     document.getElementById('create-modal').classList.add('show');
 }
@@ -501,9 +505,11 @@ function removeTag(type, val, tagsId) {
     const tagsMap = {
         identifiers: 'tags-id',
         metadata: 'tags-meta',
-        formats: 'tags-fmt'
+        customMetadata: 'tags-custom-meta',
+        formats: 'tags-fmt',
+        licenses: 'tags-licenses'
     };
-    renderTags(type, tagsMap[type]);
+    renderTags(type, tagsMap[type] || tagsId);
 }
 
 function renderTags(type, tagsId) {
