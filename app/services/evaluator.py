@@ -236,6 +236,22 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         else:
             missing.append(field)
 
+    if getattr(profile, 'require_dcat_properties', False):
+        dcat_found = metadata.custom.get("_dcat_properties", "")
+        if not dcat_found:
+            # DCAT properties required but not found — downgrade pass to partial
+            if not missing:
+                return MetricResult(
+                    metric_id="F2", principle="F", priority="essential",
+                    status="partial",
+                    description="Standard metadata fields present but "
+                                "DCAT/Dublin Core RDF properties not detected",
+                    evidence=f"Present: {', '.join(present)}",
+                    recommendation="Add DCAT or Dublin Core RDF properties "
+                                   "such as dct:title, dct:description, "
+                                   "dcat:accessURL to your metadata"
+                )
+
     if not missing:
         return MetricResult(
             metric_id="F2",
@@ -456,34 +472,43 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     formats = [f.lower() for f in metadata.core.formats]
     accepted = [f.lower() for f in profile.accepted_formats]
     matched = [f for f in formats if any(a in f or f in a for a in accepted)]
+ 
     if matched:
         return MetricResult(
-            metric_id="I1",
-            principle="I",
-            priority="important",
+            metric_id="I1", principle="I", priority="important",
             status="pass",
             description="Data is in an accepted machine-readable format",
             evidence=f"Format detected: {', '.join(matched)}"
         )
+ 
+    # FAIR-Checker style: check if RDF/JSON-LD was found on landing page
+    if getattr(profile, 'check_rdf_triples', False):
+        jsonld_vocabs = metadata.custom.get("_jsonld_vocabularies", "")
+        has_jsonld = bool(jsonld_vocabs)
+        if has_jsonld:
+            return MetricResult(
+                metric_id="I1", principle="I", priority="important",
+                status="partial",
+                description="JSON-LD detected on landing page but no "
+                            "format declared in repository metadata",
+                evidence="JSON-LD metadata found via content negotiation "
+                         "on landing page",
+                recommendation="Declare the data format explicitly in "
+                               "the repository metadata record"
+            )
+ 
     if formats:
         return MetricResult(
-            metric_id="I1",
-            principle="I",
-            priority="important",
+            metric_id="I1", principle="I", priority="important",
             status="partial",
             description="Format present but not in accepted list",
             evidence=f"Current format: {', '.join(formats)}",
             recommendation=f"Format '{', '.join(formats)}' not accepted. "
                 f"This profile requires one of: "
-                f"{', '.join(profile.accepted_formats)}. "
-                f"Note: if data files are packaged as an archive "
-                f"(e.g. zip), declare the format of the files "
-                f"inside the archive in the dataset metadata."
-    )
+                f"{', '.join(profile.accepted_formats)}"
+        )
     return MetricResult(
-        metric_id="I1",
-        principle="I",
-        priority="important",
+        metric_id="I1", principle="I", priority="important",
         status="fail",
         description="No file format information found in metadata",
         recommendation=f"Specify the data format. "
@@ -648,10 +673,11 @@ def check_i2(
     )
 
 def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+    import re
     custom_str = str(metadata.custom).lower()
     core_str = str(metadata.core.dict()).lower()
     search = custom_str + core_str
-
+ 
     reference_keywords = [
         "related", "references", "citation", "ispartof",
         "isderivedfrom", "iscitedby", "isversionof",
@@ -659,40 +685,57 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         "dcterms:references", "dcterms:relation"
     ]
     found = [kw for kw in reference_keywords if kw in search]
-
+ 
+    # FAIR-Checker style: count distinct URL authorities
+    min_auth = getattr(profile, 'min_url_authorities', 0)
+    if min_auth > 0:
+        all_urls = re.findall(r'https?://([^/\s"\'\\]+)', search)
+        # Extract just the domain from each URL
+        domains = set()
+        for url in all_urls:
+            domain = url.split('/')[0].replace('\\\\', '')
+            if domain:
+                domains.add(domain)
+        if len(domains) <= min_auth:
+            return MetricResult(
+                metric_id="I3", principle="I", priority="important",
+                status="fail",
+                description=f"Only {len(domains)} distinct URL "
+                            f"authorit{'y' if len(domains) == 1 else 'ies'} "
+                            f"found in metadata",
+                evidence=f"Domains found: {', '.join(list(domains)[:5])}",
+                recommendation="Add more diverse external links to related "
+                               "datasets, publications, and resources "
+                               "from different domains"
+            )
+ 
     if found:
         return MetricResult(
-            metric_id="I3",
-            principle="I",
-            priority="important",
+            metric_id="I3", principle="I", priority="important",
             status="pass",
             description="Metadata includes qualified references to "
-                "related resources",
+                        "related resources",
             evidence=f"Reference fields detected: {', '.join(found)}"
         )
-
+ 
     if profile.require_related_resources:
         return MetricResult(
-            metric_id="I3",
-            principle="I",
-            priority="important",
+            metric_id="I3", principle="I", priority="important",
             status="fail",
             description="No qualified references found — required by "
-                "this profile",
+                        "this profile",
             evidence="No relatedIdentifiers or citation fields detected",
             recommendation="Add qualified references to related datasets, "
-                "publications, or derived resources"
+                           "publications, or derived resources"
         )
-
+ 
     return MetricResult(
-        metric_id="I3",
-        principle="I",
-        priority="important",
+        metric_id="I3", principle="I", priority="important",
         status="partial",
         description="No qualified references found in metadata",
         evidence="No relatedIdentifiers or citation links detected",
         recommendation="Consider adding references to related datasets "
-            "or publications to improve interoperability"
+                       "or publications to improve interoperability"
     )
 
 
