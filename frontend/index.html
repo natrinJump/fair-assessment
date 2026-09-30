@@ -83,11 +83,10 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -153,6 +152,7 @@
             <input type="text" id="new-domain"
                 placeholder="e.g. marine_biology, climate_science">
         </div>
+
         <div class="form-row">
             <label>Accepted Identifier Types</label>
             <div class="tag-input-row">
@@ -165,8 +165,12 @@
             </div>
             <div class="tags" id="tags-id"></div>
         </div>
+
         <div class="form-row">
-            <label>Required Metadata Fields</label>
+            <label>Required Metadata Fields
+                <span style="font-size:0.75rem;color:#888;font-weight:400">
+                (standard fields, e.g. title, creator, license)</span>
+            </label>
             <div class="tag-input-row">
                 <input type="text" id="new-meta-input"
                     placeholder="e.g. title, license, creator">
@@ -177,6 +181,23 @@
             </div>
             <div class="tags" id="tags-meta"></div>
         </div>
+
+        <div class="form-row">
+            <label>Custom Domain-Specific Metadata Fields
+                <span style="font-size:0.75rem;color:#888;font-weight:400">
+                (domain fields, e.g. crop_type, organism)</span>
+            </label>
+            <div class="tag-input-row">
+                <input type="text" id="new-custom-meta-input"
+                    placeholder="e.g. crop_type, water_depth">
+                <button type="button" class="btn btn-secondary"
+                    onclick="addTag('customMetadata','new-custom-meta-input','tags-custom-meta')">
+                    Add
+                </button>
+            </div>
+            <div class="tags" id="tags-custom-meta"></div>
+        </div>
+
         <div class="form-row">
             <label>Accepted File Formats</label>
             <div class="tag-input-row">
@@ -189,15 +210,56 @@
             </div>
             <div class="tags" id="tags-fmt"></div>
         </div>
+
         <div class="form-row">
-            <label>Required Vocabulary (optional)</label>
+            <label>Required Vocabulary
+                <span style="font-size:0.75rem;color:#888;font-weight:400">(optional)</span>
+            </label>
             <input type="text" id="new-vocab"
                 placeholder="e.g. AGROVOC, MeSH, ENVO">
         </div>
+
         <div class="form-row">
-            <label>Required License (optional)</label>
-            <input type="text" id="new-license"
-                placeholder="e.g. CC-BY, CC0">
+            <label>Minimum Vocabulary FAIR Level</label>
+            <select id="new-vocab-level">
+                <option value="none">None — only check vocabulary presence</option>
+                <option value="basic">Basic — vocabulary URI must resolve (≥40%)</option>
+                <option value="standard">Standard — machine-readable format required (≥60%)</option>
+                <option value="full">Full — licence declaration also required (≥80%)</option>
+            </select>
+        </div>
+
+        <div class="form-row">
+            <label>Accepted Licences
+                <span style="font-size:0.75rem;color:#888;font-weight:400">
+                (e.g. cc-by, cc0, mit)</span>
+            </label>
+            <div class="tag-input-row">
+                <input type="text" id="new-license-input"
+                    placeholder="e.g. cc-by, cc0">
+                <button type="button" class="btn btn-secondary"
+                    onclick="addTag('licenses','new-license-input','tags-licenses')">
+                    Add
+                </button>
+            </div>
+            <div class="tags" id="tags-licenses"></div>
+        </div>
+
+        <div class="form-row">
+            <label>Required Licence
+                <span style="font-size:0.75rem;color:#888;font-weight:400">
+                (optional — enforce a specific licence)</span>
+            </label>
+            <input type="text" id="new-required-license"
+                placeholder="e.g. cc-by">
+        </div>
+
+        <div class="form-row">
+            <label>Community Standard
+                <span style="font-size:0.75rem;color:#888;font-weight:400">(optional)</span>
+            </label>
+            <input type="text" id="new-community-standard"
+                placeholder="e.g. OBO Foundry, CF Conventions, DDI">
         </div>
 
         <div style="display:flex;gap:0.75rem;margin-top:1rem;
@@ -214,7 +276,7 @@
 <script>
 let selectedProfile = null;
 let profiles = [];
-let newProfileData = { identifiers: [], metadata: [], formats: [] };
+let newProfileData = { identifiers: [], metadata: [], customMetadata: [], formats: [], licenses: [] };
 
 async function loadProfiles() {
     try {
@@ -470,6 +532,11 @@ async function createProfile() {
         return;
     }
 
+    const vocabVal = document.getElementById('new-vocab').value.trim();
+    const vocabLevel = vocabVal
+        ? document.getElementById('new-vocab-level').value
+        : 'none';
+
     try {
         const data = {
             name,
@@ -478,25 +545,27 @@ async function createProfile() {
             required_metadata_fields: newProfileData.metadata.length > 0
                 ? newProfileData.metadata
                 : ['title', 'description', 'creator', 'license'],
+            custom_metadata_fields: newProfileData.customMetadata,
             accepted_formats: newProfileData.formats,
-            required_vocabulary:
-                document.getElementById('new-vocab').value || null,
+            required_vocabulary: vocabVal || null,
+            min_vocab_fairness_level: vocabLevel,
+            accepted_licenses: newProfileData.licenses,
             required_license:
-                document.getElementById('new-license').value || null,
+                document.getElementById('new-required-license').value.trim() || null,
+            community_standard:
+                document.getElementById('new-community-standard').value.trim() || null,
             custom_identifiers: [],
-            custom_metadata_fields: [],
             custom_vocabularies: [],
-            accepted_licenses: [],
             required_provenance_fields: ['creator', 'provenance_date'],
             check_discoverability: true,
             require_related_resources: false,
-            community_standard: null,
         };
         const created = await apiFetch('/profiles', {
             method: 'POST',
             body: JSON.stringify(data)
         });
         closeCreateModal();
+        newProfileData = { identifiers: [], metadata: [], customMetadata: [], formats: [], licenses: [] };
         profiles = await apiFetch('/profiles');
         renderGrid();
         setTimeout(() => selectProfile(created.id), 100);
@@ -512,8 +581,20 @@ document.getElementById('new-id-input').addEventListener('keydown', e => {
 document.getElementById('new-meta-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') addTag('metadata', 'new-meta-input', 'tags-meta');
 });
+document.getElementById('new-custom-meta-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTag('customMetadata', 'new-custom-meta-input', 'tags-custom-meta');
+});
 document.getElementById('new-fmt-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') addTag('formats', 'new-fmt-input', 'tags-fmt');
+});
+document.getElementById('new-license-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTag('licenses', 'new-license-input', 'tags-licenses');
+});
+// Auto-reset vocab level to none when vocabulary is cleared
+document.getElementById('new-vocab').addEventListener('input', function() {
+    if (this.value.trim() === '') {
+        document.getElementById('new-vocab-level').value = 'none';
+    }
 });
 
 loadProfiles();
