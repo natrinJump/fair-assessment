@@ -23,6 +23,9 @@ def _db_to_dict(p: ProfileDB) -> dict:
         "required_provenance_fields": json.loads(p.required_provenance_fields),
         "community_standard": p.community_standard,
         "min_vocab_fairness_level": p.min_vocab_fairness_level,
+        "check_rdf_triples": p.check_rdf_triples,
+        "min_url_authorities": p.min_url_authorities,
+        "require_dcat_properties": p.require_dcat_properties,
     }
 
 def _dict_to_db(data: dict) -> ProfileDB:
@@ -47,6 +50,9 @@ def _dict_to_db(data: dict) -> ProfileDB:
                      ["creator", "provenance_date"])),
         community_standard=data.get("community_standard"),
         min_vocab_fairness_level=data.get("min_vocab_fairness_level", "none"),
+        check_rdf_triples=data.get("check_rdf_triples", False),
+        min_url_authorities=data.get("min_url_authorities", 0),
+        require_dcat_properties=data.get("require_dcat_properties", False),
     )
 
 def seed_profiles():
@@ -122,9 +128,16 @@ def update_profile(name: str, data: dict) -> dict:
         ]:
             if field in data:
                 setattr(p, field, data[field])
-        for field in ["check_discoverability", "require_related_resources"]:
+        for field in [
+            "check_discoverability",
+            "require_related_resources",
+            "check_rdf_triples",
+            "require_dcat_properties",
+        ]:
             if field in data:
                 setattr(p, field, data[field])
+        if "min_url_authorities" in data:
+            p.min_url_authorities = int(data["min_url_authorities"])
         session.add(p)
         session.commit()
         session.refresh(p)

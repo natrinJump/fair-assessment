@@ -23,6 +23,10 @@ class ProfileDB(SQLModel, table=True):
     required_provenance_fields: str = '["creator", "provenance_date"]'
     community_standard: Optional[str] = None
     min_vocab_fairness_level: str = "none"
+    # FAIR-Checker replication flags
+    check_rdf_triples: bool = False
+    min_url_authorities: int = 0
+    require_dcat_properties: bool = False
 
 class AssessmentHistoryDB(SQLModel, table=True):
     __tablename__ = "assessmenthistorydb"
