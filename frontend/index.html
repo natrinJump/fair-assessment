@@ -86,7 +86,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -316,7 +316,7 @@ function renderGrid() {
 }
 
 function selectProfile(id) {
-    selectedProfile = profiles.find(p => p.id === id);
+    selectedProfile = profiles.find(p => String(p.id) === String(id));
     document.querySelectorAll('.profile-card').forEach(c =>
         c.classList.remove('selected'));
     document.getElementById('profile-card-' + id).classList.add('selected');
@@ -492,14 +492,21 @@ function closeCreateModal() {
 
 function addTag(type, inputId, tagsId) {
     const input = document.getElementById(inputId);
+    const raw = input.value.trim();
+    if (!raw) return;
+    // Split by comma, clean each value
     const vals = raw.split(',')
-    .map(v => v.trim().toLowerCase())
-    .filter(v => v.length > 0);
-    if (!val) return;
-    if (newProfileData[type].includes(val)) { input.value = ''; return; }
-    newProfileData[type].push(val);
+        .map(v => v.trim().toLowerCase())
+        .filter(v => v.length > 0);
+    let added = false;
+    vals.forEach(function(val) {
+        if (!newProfileData[type].includes(val)) {
+            newProfileData[type].push(val);
+            added = true;
+        }
+    });
     input.value = '';
-    renderTags(type, tagsId);
+    if (added) renderTags(type, tagsId);
 }
 
 function removeTag(type, val, tagsId) {
@@ -583,21 +590,36 @@ async function createProfile() {
     }
 }
 
-document.getElementById('new-id-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addTag('identifiers', 'new-id-input', 'tags-id');
+// Tag input: Enter or comma triggers add
+const tagInputs = [
+    { type: 'identifiers',   inputId: 'new-id-input',          tagsId: 'tags-id' },
+    { type: 'metadata',      inputId: 'new-meta-input',         tagsId: 'tags-meta' },
+    { type: 'customMetadata',inputId: 'new-custom-meta-input',  tagsId: 'tags-custom-meta' },
+    { type: 'formats',       inputId: 'new-fmt-input',          tagsId: 'tags-fmt' },
+    { type: 'licenses',      inputId: 'new-license-input',      tagsId: 'tags-licenses' },
+];
+tagInputs.forEach(function(t) {
+    const el = document.getElementById(t.inputId);
+    // Enter key adds tags
+    el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag(t.type, t.inputId, t.tagsId);
+        }
+        // Typing a comma immediately triggers add of whatever is before it
+        if (e.key === ',') {
+            e.preventDefault();
+            addTag(t.type, t.inputId, t.tagsId);
+        }
+    });
+    // Paste: wait for value to update then split
+    el.addEventListener('paste', function() {
+        setTimeout(function() {
+            addTag(t.type, t.inputId, t.tagsId);
+        }, 50);
+    });
 });
-document.getElementById('new-meta-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addTag('metadata', 'new-meta-input', 'tags-meta');
-});
-document.getElementById('new-custom-meta-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addTag('customMetadata', 'new-custom-meta-input', 'tags-custom-meta');
-});
-document.getElementById('new-fmt-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addTag('formats', 'new-fmt-input', 'tags-fmt');
-});
-document.getElementById('new-license-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addTag('licenses', 'new-license-input', 'tags-licenses');
-});
+
 // Auto-reset vocab level to none when vocabulary is cleared
 document.getElementById('new-vocab').addEventListener('input', function() {
     if (this.value.trim() === '') {
