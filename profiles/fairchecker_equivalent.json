@@ -1,0 +1,18 @@
+{
+    "name": "FAIR-Checker Equivalent",
+    "domain": "fairchecker_equivalent",
+    "accepted_identifiers": ["doi", "url"],
+    "custom_identifiers": [],
+    "required_metadata_fields": ["title", "description"],
+    "custom_metadata_fields": [],
+    "check_discoverability": true,
+    "accepted_formats": ["json-ld", "rdf", "turtle"],
+    "required_vocabulary": null,
+    "custom_vocabularies": [],
+    "min_vocab_fairness_level": "none",
+    "require_related_resources": false,
+    "accepted_licenses": ["cc-by", "cc0", "cc-by-sa", "mit", "apache"],
+    "required_license": null,
+    "required_provenance_fields": ["creator", "provenance_date"],
+    "community_standard": null
+}

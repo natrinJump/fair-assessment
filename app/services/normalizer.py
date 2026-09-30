@@ -18,23 +18,117 @@ VOCAB_URI_PATTERNS = {
     'w3.org/ns/dcat': 'DCAT, dcat:',
     'w3.org/2004/02/skos': 'SKOS, skos:',
 }
- 
+
+# Vocabulary names to detect in JSON-LD @context
+JSONLD_CONTEXT_VOCAB_MAP = {
+    'schema.org': 'schema.org',
+    'schema:': 'schema.org',
+    'http://schema.org': 'schema.org',
+    'https://schema.org': 'schema.org',
+    'dcat': 'DCAT, dcat:',
+    'w3.org/ns/dcat': 'DCAT, dcat:',
+    'dcterms': 'Dublin Core, dcterms:',
+    'purl.org/dc': 'Dublin Core, dcterms:',
+    'skos': 'SKOS, skos:',
+    'w3.org/2004/02/skos': 'SKOS, skos:',
+    'dwc': 'darwin core, dwc:',
+    'rs.tdwg.org/dwc': 'darwin core, dwc:',
+    'darwin core': 'darwin core, dwc:',
+    'darwincore': 'darwin core, dwc:',
+    'agrovoc': 'agrovoc',
+    'aims.fao.org': 'agrovoc',
+    'mesh': 'mesh',
+    'nlm.nih.gov': 'mesh',
+    'envo': 'envo',
+    'obolibrary.org': 'envo',
+    'ddi': 'ddi',
+    'ddialliance': 'ddi',
+}
+
+
+def extract_jsonld_extras(jsonld: dict) -> dict:
+    """
+    Extract vocabulary indicators and format information from JSON-LD
+    retrieved via content negotiation on the dataset landing page.
+    This supplements the DataCite API response with information that
+    FAIR-Checker detects from the landing page JSON-LD.
+    """
+    if not jsonld:
+        return {}
+
+    extras = {}
+    detected_vocabs = set()
+
+    # Extract @context — can be a string, list, or dict
+    context = jsonld.get("@context", "")
+    context_str = ""
+
+    if isinstance(context, str):
+        context_str = context.lower()
+    elif isinstance(context, list):
+        context_str = " ".join(
+            str(c).lower() for c in context
+        )
+    elif isinstance(context, dict):
+        context_str = " ".join(
+            f"{k} {v}".lower() for k, v in context.items()
+        )
+
+    # Also search the full JSON-LD for prefix declarations
+    full_str = json.dumps(jsonld).lower()
+
+    for pattern, vocab_name in JSONLD_CONTEXT_VOCAB_MAP.items():
+        if pattern.lower() in context_str or pattern.lower() in full_str:
+            for name in vocab_name.split(','):
+                detected_vocabs.add(name.strip())
+
+    if detected_vocabs:
+        extras["_jsonld_vocabularies"] = ", ".join(detected_vocabs)
+
+    # Extract encoding format from JSON-LD
+    fmt = (
+        jsonld.get("encodingFormat") or
+        jsonld.get("schema:encodingFormat") or
+        jsonld.get("fileFormat")
+    )
+    if not fmt:
+        # Check distribution array
+        distribution = jsonld.get("distribution", [])
+        if isinstance(distribution, dict):
+            distribution = [distribution]
+        for d in distribution:
+            if isinstance(d, dict):
+                fmt = d.get("encodingFormat") or d.get("fileFormat")
+                if fmt:
+                    break
+
+    if fmt:
+        extras["_jsonld_format"] = str(fmt)
+
+    # Extract keywords from JSON-LD
+    keywords = jsonld.get("keywords", "")
+    if isinstance(keywords, list):
+        keywords = ", ".join(str(k) for k in keywords)
+    if keywords:
+        extras["_jsonld_keywords"] = str(keywords)[:500]
+
+    return extras
+
+
 def extract_vocab_indicators(subjects: list) -> str:
     """
     Extract vocabulary indicators from DataCite subjects list.
     Each subject may have subjectScheme, schemeUri, valueUri.
-    Returns a comma-separated string of detected vocabulary names
-    that the backend check_vocabulary() will find.
+    Returns a comma-separated string of detected vocabulary names.
     """
     found = set()
     for s in subjects:
-        for field in ['subjectScheme', 'schemeURI', 'schemeUri', 'valueURI', 'valueUri']:
+        for field in ['subjectScheme', 'schemeURI', 'schemeUri',
+                      'valueURI', 'valueUri']:
             val = s.get(field, '').lower()
             if not val:
                 continue
-            # Add the raw value so it can be matched against profile.required_vocabulary
             found.add(val)
-            # Also map to known vocab names
             for pattern, name in VOCAB_URI_PATTERNS.items():
                 if pattern in val:
                     for n in name.split(','):
@@ -88,7 +182,8 @@ def extract_custom_fields(attrs: dict, custom_fields: list) -> dict:
                     custom[field] = d.get("description", "")[:200]
                     break
 
-        elif field_lower in ["temporal_coverage", "time period", "date range"]:
+        elif field_lower in ["temporal_coverage", "time period",
+                              "date range"]:
             dates = attrs.get("dates", [])
             for d in dates:
                 if d.get("dateType") in ["Collected", "Coverage"]:
@@ -132,6 +227,23 @@ def normalize_datacite(raw: dict, doi: str,
     custom = extract_custom_fields(attrs, custom_fields or [])
     if related:
         custom["_related_identifiers"] = str(related)[:500]
+
+    # Extract vocabulary indicators from DataCite subject schemes
+    subjects = attrs.get("subjects", [])
+    vocab_indicators = extract_vocab_indicators(subjects)
+    if vocab_indicators:
+        custom["_vocab_indicators"] = vocab_indicators
+
+    # Extract extras from JSON-LD content negotiation
+    jsonld = raw.get("jsonld", {})
+    if jsonld:
+        jsonld_extras = extract_jsonld_extras(jsonld)
+        custom.update(jsonld_extras)
+
+        # If JSON-LD provides a format and DataCite API did not,
+        # use the JSON-LD format
+        if not formats and jsonld_extras.get("_jsonld_format"):
+            formats = [jsonld_extras["_jsonld_format"]]
 
     core = CoreMetadata(
         identifier=identifier,
@@ -187,6 +299,14 @@ def normalize_zenodo(raw: dict, identifier: str,
                 if field.lower().replace("_", " ") in term.lower():
                     custom[field] = term
                     break
+
+    # Extract JSON-LD extras if available
+    jsonld = raw.get("jsonld", {})
+    if jsonld:
+        jsonld_extras = extract_jsonld_extras(jsonld)
+        custom.update(jsonld_extras)
+        if not formats and jsonld_extras.get("_jsonld_format"):
+            formats = [jsonld_extras["_jsonld_format"]]
 
     core = CoreMetadata(
         identifier=str(data.get("doi") or
@@ -266,6 +386,12 @@ def normalize_schema_org(raw: dict, identifier: str,
         for field in custom_fields:
             if field.lower().replace("_", " ") in keywords.lower():
                 custom[field] = keywords
+
+    # Extract JSON-LD extras
+    jsonld = raw.get("jsonld", {})
+    if jsonld:
+        jsonld_extras = extract_jsonld_extras(jsonld)
+        custom.update(jsonld_extras)
 
     core = CoreMetadata(
         identifier=str(doi),
@@ -439,10 +565,9 @@ def _normalize_json_upload(data: dict, identifier: str,
         if val:
             custom[field] = str(val)
 
-    # include detected vocabulary prefixes from TTL/RDF parsing
     if data.get("detected_vocabularies"):
         custom["_detected_vocabularies"] = data["detected_vocabularies"]
-        
+
     core = CoreMetadata(
         identifier=str(identifier),
         title=str(title) if title else None,
