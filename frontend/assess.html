@@ -90,11 +90,11 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -774,8 +774,10 @@ function downloadReport() {
 // read by history.html
 function saveToLocalHistory(report) {
     try {
-        const selectedProfile = JSON.parse(localStorage.getItem('selectedProfile') || '{}');
-        addToLocalHistory(report, selectedProfile);
+        // Use the profile from the report itself, not localStorage
+        // which may hold a stale selection from the index page
+        const profileFromReport = { name: report.profile_name };
+        addToLocalHistory(report, profileFromReport);
     } catch(e) {
         console.warn('Could not save to history', e);
     }
