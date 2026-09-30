@@ -492,7 +492,9 @@ function closeCreateModal() {
 
 function addTag(type, inputId, tagsId) {
     const input = document.getElementById(inputId);
-    const val = input.value.trim().toLowerCase();
+    const vals = raw.split(',')
+    .map(v => v.trim().toLowerCase())
+    .filter(v => v.length > 0);
     if (!val) return;
     if (newProfileData[type].includes(val)) { input.value = ''; return; }
     newProfileData[type].push(val);
