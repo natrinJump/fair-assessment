@@ -90,11 +90,11 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -719,6 +719,27 @@ function renderReport(report) {
                         r.priority === 'essential' ? 'Essential (weight 1.0): highest importance — FAIRness is difficult to achieve without this' :
                         r.priority === 'important' ? 'Important (weight 0.75): significantly improves FAIRness when satisfied' :
                                                      'Useful (weight 0.5): nice to have — contributes to FAIRness but not critical';
+                    // Split evidence into main evidence and API note if present
+                    let evidenceMain = r.evidence || '';
+                    let evidenceNote = '';
+                    const noteMatch = evidenceMain.match(/\.\s*(Note:[^]+)/i);
+                    if (noteMatch) {
+                        evidenceMain = evidenceMain.replace(noteMatch[0], '').trim();
+                        evidenceNote = noteMatch[1].trim();
+                    }
+
+                    // Split recommendation into action and API note if present
+                    let recMain = r.recommendation || '';
+                    let recNote = '';
+                    const recNoteMatch = recMain.match(/\.\s*(Note:[^]+)/i);
+                    if (recNoteMatch) {
+                        recMain = recMain.replace(recNoteMatch[0], '').trim();
+                        recNote = recNoteMatch[1].trim();
+                    }
+
+                    // Check if API limitation note exists in either field
+                    const apiNote = evidenceNote || recNote;
+
                     return `
                     <div class="metric-result ${r.status}">
                         <div class="metric-header">
@@ -727,11 +748,18 @@ function renderReport(report) {
                             <span class="badge ${r.status}" title="${statusTip}">${r.status}</span>
                             <span class="badge ${r.priority}" title="${priorityTip}">${r.priority}</span>
                         </div>
-                        ${r.evidence
-                            ? `<div class="metric-evidence">✓ ${r.evidence}</div>`
+                        ${evidenceMain
+                            ? `<div class="metric-evidence">✓ ${evidenceMain}</div>`
                             : ''}
-                        ${r.recommendation
-                            ? `<div class="metric-recommendation">→ ${r.recommendation}</div>`
+                        ${recMain
+                            ? `<div class="metric-recommendation">→ ${recMain}</div>`
+                            : ''}
+                        ${apiNote
+                            ? `<div style="font-size:0.78rem;color:#b06000;background:#fef7e0;
+                                border-left:3px solid #f4b400;padding:0.35rem 0.6rem;
+                                margin-top:0.4rem;border-radius:0 4px 4px 0">
+                                &#9432; <strong>Detection note:</strong> ${apiNote.replace(/^Note:\s*/i, '')}
+                               </div>`
                             : ''}
                     </div>
                 `;}).join('')}

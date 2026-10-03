@@ -277,7 +277,11 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         note = ""
         if custom_missing:
             note = (f" Note: {', '.join(custom_missing)} are domain-specific "
-                    f"fields that may not be exposed by the repository API.")
+                    f"fields. If these exist in the dataset record, the "
+                    f"repository API may not expose them — contact the "
+                    f"repository to request metadata export, or add them "
+                    f"directly to the dataset record if they are genuinely "
+                    f"missing.")
         return MetricResult(
             metric_id="F2", principle="F", priority="essential",
             status="partial",
@@ -522,6 +526,7 @@ def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         recommendation=f"Specify the data format. "
             f"This profile accepts: {', '.join(profile.accepted_formats)}"
     )
+ 
 
 
 def check_i2(
