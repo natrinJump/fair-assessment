@@ -204,6 +204,19 @@
             </div>
             <button type="button" class="add-link" onclick="openModal('metadata')">+ Add metadata field</button>
         </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Require DCAT / schema.org property signatures in metadata
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style)</span>
+                </label>
+                <input type="checkbox" id="require-dcat-properties" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                Checks that the raw metadata response contains at least one of:
+                <code>dcat:</code>, <code>schema:</code>, <code>dcterms:identifier</code>,
+                <code>dcat:distribution</code>, <code>schema:Dataset</code> or <code>@type</code>.
+            </div>
+        </div>
     </div>
 
     <!-- F4 -->
@@ -249,6 +262,27 @@
             <div id="format-list"></div>
             <button type="button" class="add-link" onclick="openModal('format')">+ Add format</button>
         </div>
+        <div class="configurable-block">
+            <label>Format detection source:</label>
+            <div class="hint">Where ProFAIR looks for the dataset's file format.</div>
+            <select id="i1-check-source" style="background:white">
+                <option value="metadata">Metadata — read formats from the API response (default)</option>
+                <option value="landing_page">Landing page — follow DOI, inspect Content-Type &amp; HTML (F-UJI / FAIR-Checker style)</option>
+                <option value="both">Both — try metadata first, fall back to landing page</option>
+            </select>
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Pass on any RDF serialisation via content negotiation
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style)</span>
+                </label>
+                <input type="checkbox" id="check-rdf-triples" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                I1 passes whenever the landing page serves Turtle, RDF/XML, or JSON-LD via content negotiation,
+                regardless of the accepted formats list above.
+            </div>
+        </div>
     </div>
 
     <!-- I2 -->
@@ -259,8 +293,7 @@
         </div>
         <div class="principle-desc">
             Which controlled vocabularies metadata should reference.
-            The system uses a two-layer check: vocabulary presence, then vocabulary FAIRness level. Required vocabulary</strong> is the primary 
-            community standard. If not detected, I2 returns fail or partial. <strong>Custom vocabularies</strong> are additional vocabularies your community accepts.  Finding one improves the result but not finding one does not penalise.
+            The system uses a two-layer check: vocabulary presence, then vocabulary FAIRness level.
         </div>
         <div class="configurable-block">
             <label>Required vocabulary:</label>
@@ -364,6 +397,18 @@
                 <input type="checkbox" id="require-related" style="width:auto">
             </div>
         </div>
+        <div class="configurable-block">
+            <label>
+                Minimum distinct URL authorities in metadata
+                <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style — 0 = disabled)</span>
+            </label>
+            <div class="hint">
+                Counts unique hostnames across all URL-valued fields in metadata.
+                Set to 0 to disable. FAIR-Checker default is 3.
+            </div>
+            <input type="number" id="min-url-authorities" min="0" max="20" value="0"
+                style="background:white;width:80px">
+        </div>
     </div>
 
     <!-- R1.1 -->
@@ -384,6 +429,29 @@
             <input type="text" id="license-input"
                 placeholder="e.g. CC-BY (leave empty to accept any from list)"
                 style="background:white">
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Validate license against SPDX recognised identifiers
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI style)</span>
+                </label>
+                <input type="checkbox" id="r1-1-spdx-check" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                License must match a recognised SPDX identifier (e.g. CC-BY-4.0, MIT, Apache-2.0)
+                or contain a known SPDX license URI fragment.
+            </div>
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Require license value to be a URI
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style)</span>
+                </label>
+                <input type="checkbox" id="r1-1-require-license-uri" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                License field must start with <code>http://</code> or <code>https://</code> to pass.
+            </div>
         </div>
     </div>
 
@@ -675,10 +743,6 @@ function saveModalItem() {
 
 // ── Save / Restore ─────────────────────────────────────────────
 async function saveProfile() {
-    const vocabInput = document.getElementById('vocabulary-input').value.trim();
-    if (!vocabInput) {
-        document.getElementById('min-vocab-level').value = 'none';
-    }
     validateProfile();
     try {
         const updated = {
@@ -692,10 +756,16 @@ async function saveProfile() {
             required_vocabulary:      document.getElementById('vocabulary-input').value.trim() || null,
             custom_vocabularies:      customVocabularies,
             require_related_resources: document.getElementById('require-related').checked,
+            min_url_authorities:      parseInt(document.getElementById('min-url-authorities').value) || 0,
             accepted_licenses:        activeLicenses,
             required_license:         document.getElementById('license-input').value.trim() || null,
+            r1_1_spdx_check:          document.getElementById('r1-1-spdx-check').checked,
+            r1_1_require_license_uri: document.getElementById('r1-1-require-license-uri').checked,
             required_provenance_fields: activeProvenance,
             community_standard:       document.getElementById('community-standard').value.trim() || null,
+            i1_check_source:          document.getElementById('i1-check-source').value,
+            check_rdf_triples:        document.getElementById('check-rdf-triples').checked,
+            require_dcat_properties:  document.getElementById('require-dcat-properties').checked,
         };
         localStorage.setItem('profileFullState_' + profile.name, JSON.stringify({
             all_identifiers: allIdentifiers, all_formats: allFormats,
@@ -741,9 +811,15 @@ async function restoreProfile() {
         document.getElementById('vocabulary-input').value   = restored.required_vocabulary || '';
         document.getElementById('license-input').value      = restored.required_license || '';
         document.getElementById('community-standard').value = restored.community_standard || '';
-        document.getElementById('check-discoverability').checked = restored.check_discoverability !== false;
-        document.getElementById('require-related').checked       = restored.require_related_resources === true;
-        document.getElementById('min-vocab-level').value         = restored.min_vocab_fairness_level || 'none';  // ← fixed
+        document.getElementById('check-discoverability').checked   = restored.check_discoverability !== false;
+        document.getElementById('require-related').checked         = restored.require_related_resources === true;
+        document.getElementById('min-vocab-level').value           = restored.min_vocab_fairness_level || 'none';
+        document.getElementById('i1-check-source').value           = restored.i1_check_source || 'metadata';
+        document.getElementById('check-rdf-triples').checked       = restored.check_rdf_triples === true;
+        document.getElementById('require-dcat-properties').checked = restored.require_dcat_properties === true;
+        document.getElementById('min-url-authorities').value       = restored.min_url_authorities || 0;
+        document.getElementById('r1-1-spdx-check').checked         = restored.r1_1_spdx_check === true;
+        document.getElementById('r1-1-require-license-uri').checked = restored.r1_1_require_license_uri === true;
 
         renderAll();
         validateProfile();
@@ -758,19 +834,21 @@ document.getElementById('profile-title').textContent    = 'Edit Profile: ' + (pr
 document.getElementById('vocabulary-input').value       = profile.required_vocabulary || '';
 document.getElementById('license-input').value          = profile.required_license || '';
 document.getElementById('community-standard').value     = profile.community_standard || '';
-document.getElementById('check-discoverability').checked = profile.check_discoverability !== false;
-document.getElementById('require-related').checked       = profile.require_related_resources === true;
-document.getElementById('min-vocab-level').value         = profile.min_vocab_fairness_level || 'none';
-// Auto-reset vocab FAIR level to none when required vocabulary is cleared
-document.getElementById('vocabulary-input').addEventListener('input', function() {
-    if (this.value.trim() === '') {
-        document.getElementById('min-vocab-level').value = 'none';
-    }
-});
+document.getElementById('check-discoverability').checked   = profile.check_discoverability !== false;
+document.getElementById('require-related').checked         = profile.require_related_resources === true;
+document.getElementById('min-vocab-level').value           = profile.min_vocab_fairness_level || 'none';
+document.getElementById('i1-check-source').value           = profile.i1_check_source || 'metadata';
+document.getElementById('check-rdf-triples').checked       = profile.check_rdf_triples === true;
+document.getElementById('require-dcat-properties').checked = profile.require_dcat_properties === true;
+document.getElementById('min-url-authorities').value       = profile.min_url_authorities || 0;
+document.getElementById('r1-1-spdx-check').checked         = profile.r1_1_spdx_check === true;
+document.getElementById('r1-1-require-license-uri').checked = profile.r1_1_require_license_uri === true;
+
 renderAll();
 validateProfile();
 
-const defaultDomains = ['generic', 'agriculture', 'life_sciences', 'environmental', 'social_sciences'];
+const defaultDomains = ['generic', 'agriculture', 'life_sciences', 'environmental', 'social_sciences',
+    'fuji_equivalent', 'fairchecker_equivalent'];
 if (!defaultDomains.includes(profile.domain)) {
     document.getElementById('restore-btn').style.display = 'none';
 }
