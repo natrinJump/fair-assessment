@@ -1542,7 +1542,11 @@ def calculate_score(results: list, principle: str) -> float:
 
 
 def run_assessment(metadata: NormalizedMetadata,
-                   profile_name: str = "generic") -> AssessmentReport:
+                   profile_name: str = "generic",
+                   vocab_fairness=None) -> AssessmentReport:
+    # vocab_fairness is accepted for backward-compatibility with main.py callers
+    # that call assess_vocab_fairness() externally. Vocabulary evaluation is now
+    # handled internally by check_i2() using the profile's min_vocab_fairness_level.
     profile = load_profile(profile_name)
 
     results = [
