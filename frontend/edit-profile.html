@@ -904,14 +904,14 @@ async function restoreProfile() {
         activeMetadata    = mergeUnique(restored.required_metadata_fields, restored.custom_metadata_fields);
         activeLicenses    = [...allLicenses];
         activeProvenance  = [...allProvenance];
-        customIdentifiers  = [...(restored.custom_identifiers || [])];
-        customVocabularies = [...(restored.custom_vocabularies || [])];
-        customMetadata     = [...(restored.custom_metadata_fields || [])];
+        customIdentifiers        = [...(restored.custom_identifiers || [])];
+        customVocabularies       = [...(restored.custom_vocabularies || [])];
+        customMetadata           = [...(restored.custom_metadata_fields || [])];
+        activeCommunityStandards = [...(restored.required_community_standards || [])];
 
         // Reset text inputs
-        document.getElementById('vocabulary-input').value   = restored.required_vocabulary || '';
-        document.getElementById('license-input').value      = restored.required_license || '';
-        document.getElementById('community-standard').value = restored.community_standard || '';
+        document.getElementById('vocabulary-input').value = restored.required_vocabulary || '';
+        document.getElementById('license-input').value    = restored.required_license || '';
         document.getElementById('check-discoverability').checked   = restored.check_discoverability !== false;
         document.getElementById('require-related').checked         = restored.require_related_resources === true;
         document.getElementById('min-vocab-level').value           = restored.min_vocab_fairness_level || 'none';
@@ -924,6 +924,7 @@ async function restoreProfile() {
         document.getElementById('check-access-level').checked            = restored.check_access_level === true;
         document.getElementById('i2-namespace-check').checked            = restored.i2_namespace_check === true;
         document.getElementById('r1-2-require-prov-ontology').checked    = restored.r1_2_require_prov_ontology === true;
+        document.getElementById('r1-check-measured-variables').checked   = restored.r1_check_measured_variables === true;
 
         renderAll();
         validateProfile();
@@ -937,7 +938,6 @@ async function restoreProfile() {
 document.getElementById('profile-title').textContent    = 'Edit Profile: ' + (profile.name || '');
 document.getElementById('vocabulary-input').value       = profile.required_vocabulary || '';
 document.getElementById('license-input').value          = profile.required_license || '';
-document.getElementById('community-standard').value     = profile.community_standard || '';
 document.getElementById('check-discoverability').checked   = profile.check_discoverability !== false;
 document.getElementById('require-related').checked         = profile.require_related_resources === true;
 document.getElementById('min-vocab-level').value           = profile.min_vocab_fairness_level || 'none';
@@ -950,6 +950,7 @@ document.getElementById('r1-1-require-license-uri').checked      = profile.r1_1_
 document.getElementById('check-access-level').checked            = profile.check_access_level === true;
 document.getElementById('i2-namespace-check').checked            = profile.i2_namespace_check === true;
 document.getElementById('r1-2-require-prov-ontology').checked    = profile.r1_2_require_prov_ontology === true;
+document.getElementById('r1-check-measured-variables').checked   = profile.r1_check_measured_variables === true;
 
 renderAll();
 validateProfile();
