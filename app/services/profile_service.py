@@ -28,13 +28,15 @@ def _db_to_dict(p: ProfileDB) -> dict:
         "check_rdf_triples": p.check_rdf_triples,
         "min_url_authorities": p.min_url_authorities,
         "require_dcat_properties": p.require_dcat_properties,
-        # F-UJI replication flags
+        # Configurability flags
         "i1_check_source": p.i1_check_source,
         "check_access_level": p.check_access_level,
         "i2_namespace_check": p.i2_namespace_check,
         "r1_1_spdx_check": p.r1_1_spdx_check,
         "r1_1_require_license_uri": p.r1_1_require_license_uri,
         "r1_2_require_prov_ontology": p.r1_2_require_prov_ontology,
+        "r1_check_measured_variables": p.r1_check_measured_variables,
+        "required_community_standards": json.loads(p.required_community_standards),
     }
 
 
@@ -71,6 +73,9 @@ def _dict_to_db(data: dict) -> ProfileDB:
         r1_1_spdx_check=data.get("r1_1_spdx_check", False),
         r1_1_require_license_uri=data.get("r1_1_require_license_uri", False),
         r1_2_require_prov_ontology=data.get("r1_2_require_prov_ontology", False),
+        r1_check_measured_variables=data.get("r1_check_measured_variables", False),
+        required_community_standards=json.dumps(
+            data.get("required_community_standards", [])),
     )
 
 
@@ -141,6 +146,7 @@ def update_profile(name: str, data: dict) -> dict:
             "custom_vocabularies",
             "accepted_licenses",
             "required_provenance_fields",
+            "required_community_standards",
         ]:
             if field in data:
                 setattr(p, field, json.dumps(data[field]))
@@ -168,6 +174,7 @@ def update_profile(name: str, data: dict) -> dict:
             "r1_1_spdx_check",
             "r1_1_require_license_uri",
             "r1_2_require_prov_ontology",
+            "r1_check_measured_variables",
         ]:
             if field in data:
                 setattr(p, field, data[field])

@@ -59,13 +59,39 @@ KNOWN_VOCAB_NAMESPACES: dict = {
     "EBI":           ["http://www.ebi.ac.uk/"],
 }
 
-# PROV/PAV URIs used by F-UJI for FsF-R1.2-01M-2
+# PROV/PAV URIs used by FsF-R1.2-01M-2
 PROV_ONTOLOGY_URIS = [
     "http://www.w3.org/ns/prov",
     "https://www.w3.org/ns/prov",
     "http://purl.org/pav",
     "https://purl.org/pav",
 ]
+
+# Community metadata standards — namespace/URI patterns used by check_r1_3()
+# when profile.required_community_standards is non-empty.
+# Keys are lowercase standard names; values are substrings to scan for in
+# the raw metadata text (case-insensitive).  Add new standards here as needed.
+COMMUNITY_STANDARDS_PATTERNS: dict = {
+    "schema.org":       ["schema.org/", "http://schema.org", "https://schema.org"],
+    "datacite":         ["datacite.org/schema", "datacite.org"],
+    "dublin core":      ["purl.org/dc/", "dublincore.org"],
+    "dcat":             ["w3.org/ns/dcat", "dcat:"],
+    "dcat-ap":          ["dcat-ap", "joinup.ec.europa.eu/collection/semantic-interoperability"],
+    "ddi":              ["ddialliance.org", "ddi:", "colectica"],
+    "abcd":             ["tdwg.org/schemas/abcd", "abcd:"],
+    "darwin core":      ["rs.tdwg.org/dwc/", "dwc:", "darwincore"],
+    "iso 19115":        ["iso19115", "iso 19115", "19115-"],
+    "cf conventions":   ["cfconventions.org", "cf-1.", ":Conventions"],
+    "inspire":          ["inspire.ec.europa.eu"],
+    "eml":              ["eml.ecoinformatics.org", "<eml:"],
+    "europeana edm":    ["europeana.eu/schemas/edm", "edm:"],
+    "marc":             ["loc.gov/marc/", "marc:"],
+    "oai-pmh":          ["openarchives.org/oai/"],
+    "codemeta":         ["codemeta.github.io", "codemeta:"],
+    "bioschemas":       ["bioschemas.org"],
+    "ogc":              ["opengeospatial.org", "ogc:"],
+    "mixs":             ["gensc.org/mixs", "mixs:"],
+}
 
 # Content-type → format name mapping used for landing-page detection
 CONTENT_TYPE_MAP = {
@@ -1146,24 +1172,63 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         else:
             missing.append(field)
 
-    if not missing:
+    # ── Measured variables check ──────────────────────────────────
+    measured_ok = True
+    measured_evidence = ""
+    if profile.r1_check_measured_variables:
+        variable_fields = [
+            "variableMeasured", "variables", "measured_variables",
+            "variable_measured", "hasPart", "observationType",
+            "observation_type", "parameters",
+        ]
+        measured_val = None
+        for vf in variable_fields:
+            measured_val = (getattr(core, vf, None)
+                            or metadata.custom.get(vf)
+                            or metadata.custom.get(vf.lower()))
+            if measured_val:
+                measured_evidence = f"Measured variables found: {vf}"
+                break
+        if not measured_val:
+            measured_ok = False
+            measured_evidence = (
+                "No measured variables or observation types found "
+                "(variableMeasured / variables / hasPart)"
+            )
+
+    base_status = "pass" if not missing else ("partial" if present else "fail")
+
+    if base_status == "pass" and not measured_ok:
+        return MetricResult(
+            metric_id="R1",
+            principle="R",
+            priority="essential",
+            status="partial",
+            description="Metadata fields are complete but measured variables/observation types are not specified",
+            evidence=f"Fields present: {', '.join(present)} | {measured_evidence}",
+            recommendation="Add variableMeasured, variables, or observation_type to metadata"
+        )
+
+    if base_status == "pass":
+        ev = f"All reuse fields present: {', '.join(present)}"
+        if measured_evidence:
+            ev += f" | {measured_evidence}"
         return MetricResult(
             metric_id="R1",
             principle="R",
             priority="essential",
             status="pass",
             description="Metadata contains sufficient information for reuse",
-            evidence=f"All reuse fields present: {', '.join(present)}"
+            evidence=ev
         )
-    if present:
+    if base_status == "partial":
         return MetricResult(
             metric_id="R1",
             principle="R",
             priority="essential",
             status="partial",
             description="Metadata missing some fields needed for reuse",
-            evidence=f"Present: {', '.join(present)} | "
-                f"Missing: {', '.join(missing)}",
+            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
             recommendation=f"Add missing fields: {', '.join(missing)}"
         )
     return MetricResult(
@@ -1435,14 +1500,77 @@ def check_r1_3(metadata: NormalizedMetadata,
                profile: Profile) -> MetricResult:
     """Evaluate R1.3 — Meets Domain-Relevant Community Standards.
 
-    Uses the same format sources as I1 (metadata API, landing page, or
-    both) so that the R1.3 result is consistent with I1 when the profile
-    is configured to check the landing page.
+    Two modes controlled by ``profile.required_community_standards``:
+
+    **Standards mode** (list is non-empty):
+        Scans the raw metadata text for each required standard's namespace /
+        URI patterns (see COMMUNITY_STANDARDS_PATTERNS).
+        - All required standards detected  → pass
+        - Some detected                    → partial
+        - None detected                    → fail
+
+    **Format mode** (list is empty — default):
+        Falls back to checking whether data formats match the profile's
+        ``accepted_formats`` list (legacy behaviour, same source strategy
+        as I1: metadata API, landing page, or both).
     """
-    accepted = [f.lower() for f in profile.accepted_formats]
     standard = profile.community_standard
 
-    # Collect formats using the same strategy as check_i1
+    # ── Standards mode ────────────────────────────────────────────
+    if profile.required_community_standards:
+        raw_text = json.dumps(metadata.custom).lower()
+        # Also include core fields
+        raw_text += json.dumps({
+            "title": metadata.core.title,
+            "description": metadata.core.description,
+            "formats": metadata.core.formats,
+        }).lower()
+
+        found = []
+        not_found = []
+        for std_name in profile.required_community_standards:
+            key = std_name.lower().strip()
+            patterns = COMMUNITY_STANDARDS_PATTERNS.get(key, [key])
+            matched = any(p.lower() in raw_text for p in patterns)
+            if matched:
+                found.append(std_name)
+            else:
+                not_found.append(std_name)
+
+        if not not_found:
+            return MetricResult(
+                metric_id="R1.3",
+                principle="R",
+                priority="essential",
+                status="pass",
+                description="All required community standards detected in metadata",
+                evidence=f"Found: {', '.join(found)}"
+            )
+        if found:
+            return MetricResult(
+                metric_id="R1.3",
+                principle="R",
+                priority="essential",
+                status="partial",
+                description="Some required community standards detected in metadata",
+                evidence=f"Found: {', '.join(found)} | Missing: {', '.join(not_found)}",
+                recommendation=f"Add metadata conforming to: {', '.join(not_found)}"
+            )
+        return MetricResult(
+            metric_id="R1.3",
+            principle="R",
+            priority="essential",
+            status="fail",
+            description="No required community standards detected in metadata",
+            evidence=f"Required: {', '.join(profile.required_community_standards)}",
+            recommendation=(
+                "Ensure metadata includes namespace URIs or vocabulary terms "
+                f"for: {', '.join(profile.required_community_standards)}"
+            )
+        )
+
+    # ── Format mode (default) ─────────────────────────────────────
+    accepted = [f.lower() for f in profile.accepted_formats]
     formats_found: list = []
 
     if profile.i1_check_source in ("metadata", "both"):

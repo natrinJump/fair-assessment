@@ -36,11 +36,15 @@ class ProfileDB(SQLModel, table=True):
     check_access_level: bool = False
     # F-UJI / I2 replication flag — detect vocabs by namespace URI not keyword
     i2_namespace_check: bool = False
-    # F-UJI / R1.1 replication flags
+    # R1.1 validation flags
     r1_1_spdx_check: bool = False
     r1_1_require_license_uri: bool = False
-    # F-UJI / R1.2 replication flag — require PROV-O or PAV ontology URI
+    # R1.2 — require PROV-O or PAV ontology URI
     r1_2_require_prov_ontology: bool = False
+    # R1 — require measured variables / observation types in metadata
+    r1_check_measured_variables: bool = False
+    # R1.3 — list of required community standards (JSON array of strings)
+    required_community_standards: str = "[]"
 
 
 class AssessmentHistoryDB(SQLModel, table=True):

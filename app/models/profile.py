@@ -83,12 +83,23 @@ class Profile(BaseModel):
     # R1.2 — provenance fields
     required_provenance_fields: list[str] = ["creator", "provenance_date"]
 
-    # R1.2 — F-UJI style: require formal PROV/PAV ontology URI in metadata
-    # (FsF-R1.2-01M-2: PROV-O or PAV must appear for a full pass)
+    # R1.2 — require formal PROV/PAV ontology URI in metadata
     r1_2_require_prov_ontology: bool = False
 
+    # R1 — require measured variables / observation types in metadata
+    # When True: checks for variableMeasured, variables, measured_variables,
+    # hasPart fields; missing them downgrades the result to partial.
+    r1_check_measured_variables: bool = False
+
     # R1.3 — community standards
+    # Single legacy string (kept for backward compat)
     community_standard: Optional[str] = None
+    # List of required community standards to detect in metadata.
+    # When non-empty, R1.3 switches from format-matching to namespace/URI
+    # detection: all found → pass, some found → partial, none found → fail.
+    # Standard names are matched case-insensitively against a built-in
+    # namespace pattern table (Schema.org, DataCite, DDI, Darwin Core, etc.).
+    required_community_standards: list[str] = []
 
 
 class MetricResult(BaseModel):
