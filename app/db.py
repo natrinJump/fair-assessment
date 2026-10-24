@@ -27,6 +27,21 @@ class ProfileDB(SQLModel, table=True):
     check_rdf_triples: bool = False
     min_url_authorities: int = 0
     require_dcat_properties: bool = False
+    # F-UJI / I1 replication flag — where to detect file format
+    #   "metadata"     : read from API response (default)
+    #   "landing_page" : HTTP request to access URL (F-UJI style)
+    #   "both"         : try metadata first, fall back to landing page
+    i1_check_source: str = "metadata"
+    # F-UJI / A1 replication flag — require explicit access level declaration
+    check_access_level: bool = False
+    # F-UJI / I2 replication flag — detect vocabs by namespace URI not keyword
+    i2_namespace_check: bool = False
+    # F-UJI / R1.1 replication flags
+    r1_1_spdx_check: bool = False
+    r1_1_require_license_uri: bool = False
+    # F-UJI / R1.2 replication flag — require PROV-O or PAV ontology URI
+    r1_2_require_prov_ontology: bool = False
+
 
 class AssessmentHistoryDB(SQLModel, table=True):
     __tablename__ = "assessmenthistorydb"

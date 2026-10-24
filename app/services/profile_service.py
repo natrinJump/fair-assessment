@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.db import ProfileDB, engine
 from app.models.profile import Profile
 
+
 def _db_to_dict(p: ProfileDB) -> dict:
     return {
         "id": p.id,
@@ -23,10 +24,19 @@ def _db_to_dict(p: ProfileDB) -> dict:
         "required_provenance_fields": json.loads(p.required_provenance_fields),
         "community_standard": p.community_standard,
         "min_vocab_fairness_level": p.min_vocab_fairness_level,
+        # FAIR-Checker replication flags
         "check_rdf_triples": p.check_rdf_triples,
         "min_url_authorities": p.min_url_authorities,
         "require_dcat_properties": p.require_dcat_properties,
+        # F-UJI replication flags
+        "i1_check_source": p.i1_check_source,
+        "check_access_level": p.check_access_level,
+        "i2_namespace_check": p.i2_namespace_check,
+        "r1_1_spdx_check": p.r1_1_spdx_check,
+        "r1_1_require_license_uri": p.r1_1_require_license_uri,
+        "r1_2_require_prov_ontology": p.r1_2_require_prov_ontology,
     }
+
 
 def _dict_to_db(data: dict) -> ProfileDB:
     return ProfileDB(
@@ -50,10 +60,19 @@ def _dict_to_db(data: dict) -> ProfileDB:
                      ["creator", "provenance_date"])),
         community_standard=data.get("community_standard"),
         min_vocab_fairness_level=data.get("min_vocab_fairness_level", "none"),
+        # FAIR-Checker replication flags
         check_rdf_triples=data.get("check_rdf_triples", False),
         min_url_authorities=data.get("min_url_authorities", 0),
         require_dcat_properties=data.get("require_dcat_properties", False),
+        # F-UJI replication flags
+        i1_check_source=data.get("i1_check_source", "metadata"),
+        check_access_level=data.get("check_access_level", False),
+        i2_namespace_check=data.get("i2_namespace_check", False),
+        r1_1_spdx_check=data.get("r1_1_spdx_check", False),
+        r1_1_require_license_uri=data.get("r1_1_require_license_uri", False),
+        r1_2_require_prov_ontology=data.get("r1_2_require_prov_ontology", False),
     )
+
 
 def seed_profiles():
     with Session(engine) as session:
@@ -68,10 +87,12 @@ def seed_profiles():
                 session.add(_dict_to_db(data))
         session.commit()
 
+
 def get_all_profiles():
     with Session(engine) as session:
         profiles = session.exec(select(ProfileDB)).all()
         return [_db_to_dict(p) for p in profiles]
+
 
 def get_profile_by_name(name: str):
     with Session(engine) as session:
@@ -82,6 +103,7 @@ def get_profile_by_name(name: str):
             return None
         return _db_to_dict(results[0])
 
+
 def get_profile_by_domain(domain: str):
     with Session(engine) as session:
         results = session.exec(
@@ -91,6 +113,7 @@ def get_profile_by_domain(domain: str):
             return None
         return _db_to_dict(results[0])
 
+
 def create_profile(data: dict) -> dict:
     with Session(engine) as session:
         profile = _dict_to_db(data)
@@ -98,6 +121,7 @@ def create_profile(data: dict) -> dict:
         session.commit()
         session.refresh(profile)
         return _db_to_dict(profile)
+
 
 def update_profile(name: str, data: dict) -> dict:
     with Session(engine) as session:
@@ -107,6 +131,7 @@ def update_profile(name: str, data: dict) -> dict:
         if not results:
             return None
         p = results[0]
+        # JSON-serialised list fields
         for field in [
             "accepted_identifiers",
             "custom_identifiers",
@@ -119,29 +144,41 @@ def update_profile(name: str, data: dict) -> dict:
         ]:
             if field in data:
                 setattr(p, field, json.dumps(data[field]))
+        # Plain string fields
         for field in [
             "required_vocabulary",
             "required_license",
             "community_standard",
             "domain",
             "min_vocab_fairness_level",
+            "i1_check_source",          # F-UJI: format detection source
         ]:
             if field in data:
                 setattr(p, field, data[field])
+        # Boolean fields
         for field in [
             "check_discoverability",
             "require_related_resources",
+            # FAIR-Checker flags
             "check_rdf_triples",
             "require_dcat_properties",
+            # F-UJI flags
+            "check_access_level",
+            "i2_namespace_check",
+            "r1_1_spdx_check",
+            "r1_1_require_license_uri",
+            "r1_2_require_prov_ontology",
         ]:
             if field in data:
                 setattr(p, field, data[field])
+        # Integer fields
         if "min_url_authorities" in data:
             p.min_url_authorities = int(data["min_url_authorities"])
         session.add(p)
         session.commit()
         session.refresh(p)
         return _db_to_dict(p)
+
 
 def delete_profile(name: str) -> bool:
     with Session(engine) as session:
