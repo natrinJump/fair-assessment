@@ -151,7 +151,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -215,6 +215,27 @@
                 Checks that the raw metadata response contains at least one of:
                 <code>dcat:</code>, <code>schema:</code>, <code>dcterms:identifier</code>,
                 <code>dcat:distribution</code>, <code>schema:Dataset</code> or <code>@type</code>.
+            </div>
+        </div>
+    </div>
+
+    <!-- A1 access level -->
+    <div class="principle-section">
+        <div class="principle-header">
+            <span>A1 — Accessibility</span>
+            <span style="font-size:0.7rem;font-weight:400;opacity:0.8">Configurable</span>
+        </div>
+        <div class="fixed-check">🔒 Metadata accessible via HTTP/HTTPS (always checked)</div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Require explicit access level / access rights declaration in metadata
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI FsF-A1-01M style)</span>
+                </label>
+                <input type="checkbox" id="check-access-level" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                Checks for <code>access_level</code>, <code>access_rights</code>, or <code>rights</code>
+                fields in metadata. Without a declaration the metric is downgraded to partial.
             </div>
         </div>
     </div>
@@ -383,6 +404,18 @@
             </div>
             <button type="button" class="add-link" onclick="openModal('vocabulary')">+ Add vocabulary</button>
         </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Detect vocabularies by registered namespace URI
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI FsF-I2-01M style)</span>
+                </label>
+                <input type="checkbox" id="i2-namespace-check" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                Scans metadata for known ontology namespace URIs (schema.org, DCAT, SKOS, Dublin Core, OBO, etc.)
+                instead of keyword matching. Stricter — fails if no registered namespace URI is found.
+            </div>
+        </div>
     </div>
 
     <!-- I3 -->
@@ -465,6 +498,18 @@
             <label>Required provenance fields:</label>
             <div id="provenance-list"></div>
             <button type="button" class="add-link" onclick="openModal('provenance')">+ Add provenance field</button>
+        </div>
+        <div class="configurable-block">
+            <div class="toggle-row">
+                <label>Require formal PROV-O or PAV ontology URI in metadata
+                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI FsF-R1.2-01M-2 style)</span>
+                </label>
+                <input type="checkbox" id="r1-2-require-prov-ontology" style="width:auto">
+            </div>
+            <div class="hint" style="margin-top:0.35rem">
+                Checks for <code>http://www.w3.org/ns/prov</code> or <code>http://purl.org/pav</code>
+                URIs in the metadata response. Without them the metric is downgraded to partial.
+            </div>
         </div>
     </div>
 
@@ -763,9 +808,12 @@ async function saveProfile() {
             r1_1_require_license_uri: document.getElementById('r1-1-require-license-uri').checked,
             required_provenance_fields: activeProvenance,
             community_standard:       document.getElementById('community-standard').value.trim() || null,
-            i1_check_source:          document.getElementById('i1-check-source').value,
-            check_rdf_triples:        document.getElementById('check-rdf-triples').checked,
-            require_dcat_properties:  document.getElementById('require-dcat-properties').checked,
+            i1_check_source:           document.getElementById('i1-check-source').value,
+            check_rdf_triples:         document.getElementById('check-rdf-triples').checked,
+            require_dcat_properties:   document.getElementById('require-dcat-properties').checked,
+            check_access_level:        document.getElementById('check-access-level').checked,
+            i2_namespace_check:        document.getElementById('i2-namespace-check').checked,
+            r1_2_require_prov_ontology: document.getElementById('r1-2-require-prov-ontology').checked,
         };
         localStorage.setItem('profileFullState_' + profile.name, JSON.stringify({
             all_identifiers: allIdentifiers, all_formats: allFormats,
@@ -818,8 +866,11 @@ async function restoreProfile() {
         document.getElementById('check-rdf-triples').checked       = restored.check_rdf_triples === true;
         document.getElementById('require-dcat-properties').checked = restored.require_dcat_properties === true;
         document.getElementById('min-url-authorities').value       = restored.min_url_authorities || 0;
-        document.getElementById('r1-1-spdx-check').checked         = restored.r1_1_spdx_check === true;
-        document.getElementById('r1-1-require-license-uri').checked = restored.r1_1_require_license_uri === true;
+        document.getElementById('r1-1-spdx-check').checked              = restored.r1_1_spdx_check === true;
+        document.getElementById('r1-1-require-license-uri').checked      = restored.r1_1_require_license_uri === true;
+        document.getElementById('check-access-level').checked            = restored.check_access_level === true;
+        document.getElementById('i2-namespace-check').checked            = restored.i2_namespace_check === true;
+        document.getElementById('r1-2-require-prov-ontology').checked    = restored.r1_2_require_prov_ontology === true;
 
         renderAll();
         validateProfile();
@@ -841,8 +892,11 @@ document.getElementById('i1-check-source').value           = profile.i1_check_so
 document.getElementById('check-rdf-triples').checked       = profile.check_rdf_triples === true;
 document.getElementById('require-dcat-properties').checked = profile.require_dcat_properties === true;
 document.getElementById('min-url-authorities').value       = profile.min_url_authorities || 0;
-document.getElementById('r1-1-spdx-check').checked         = profile.r1_1_spdx_check === true;
-document.getElementById('r1-1-require-license-uri').checked = profile.r1_1_require_license_uri === true;
+document.getElementById('r1-1-spdx-check').checked              = profile.r1_1_spdx_check === true;
+document.getElementById('r1-1-require-license-uri').checked      = profile.r1_1_require_license_uri === true;
+document.getElementById('check-access-level').checked            = profile.check_access_level === true;
+document.getElementById('i2-namespace-check').checked            = profile.i2_namespace_check === true;
+document.getElementById('r1-2-require-prov-ontology').checked    = profile.r1_2_require_prov_ontology === true;
 
 renderAll();
 validateProfile();

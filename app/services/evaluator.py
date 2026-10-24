@@ -5,6 +5,93 @@ from app.models.metadata import NormalizedMetadata
 from app.models.profile import Profile, MetricResult, AssessmentReport
 
 
+# ─── SPDX license identifiers (common subset) ─────────────────────────────────
+# F-UJI validates R1.1 against this list. Keep it broad enough to match
+# Creative Commons URIs and common open-source/open-data identifiers.
+SPDX_LICENSES = {
+    # Creative Commons
+    "cc0-1.0", "cc-by-4.0", "cc-by-3.0", "cc-by-2.0", "cc-by-1.0",
+    "cc-by-sa-4.0", "cc-by-sa-3.0", "cc-by-nc-4.0", "cc-by-nd-4.0",
+    "cc-by-nc-nd-4.0", "cc-by-nc-sa-4.0",
+    # Open source
+    "mit", "apache-2.0", "gpl-2.0", "gpl-2.0-only", "gpl-2.0-or-later",
+    "gpl-3.0-only", "gpl-3.0-or-later", "lgpl-2.1", "lgpl-3.0-or-later",
+    "bsd-2-clause", "bsd-3-clause", "isc", "mpl-2.0",
+    "agpl-3.0-only", "agpl-3.0-or-later",
+    # Open data / government
+    "odc-by", "odbl-1.0", "pddl-1.0", "ogl-canada-2.0",
+    # Other
+    "eupl-1.2", "epl-2.0", "epl-1.0",
+}
+
+# URI fragments that are sufficient evidence of a machine-readable,
+# SPDX-resolvable licence even without exact ID matching.
+SPDX_URI_FRAGMENTS = [
+    "spdx.org/licenses/",
+    "creativecommons.org/licenses/",
+    "creativecommons.org/publicdomain/zero/",
+    "opensource.org/licenses/",
+    "opendatacommons.org/licenses/",
+]
+
+# ─── Registered vocabulary namespaces (F-UJI I2 style) ───────────────────────
+# F-UJI detects semantic resources by scanning metadata for known ontology
+# namespace URIs rather than keyword matching.  A subset of commonly indexed
+# namespaces is listed here; extend as needed.
+KNOWN_VOCAB_NAMESPACES: dict = {
+    "schema.org":    ["http://schema.org/", "https://schema.org/"],
+    "DCAT":          ["http://www.w3.org/ns/dcat", "https://www.w3.org/ns/dcat"],
+    "Dublin Core":   ["http://purl.org/dc/", "http://dublincore.org/"],
+    "SKOS":          ["http://www.w3.org/2004/02/skos/"],
+    "PROV-O":        ["http://www.w3.org/ns/prov"],
+    "OBO Library":   ["http://purl.obolibrary.org/obo/"],
+    "RDF":           ["http://www.w3.org/1999/02/22-rdf-syntax-ns#"],
+    "OWL":           ["http://www.w3.org/2002/07/owl#"],
+    "FOAF":          ["http://xmlns.com/foaf/"],
+    "Wikidata":      ["http://www.wikidata.org/"],
+    "GeoNames":      ["http://sws.geonames.org/", "http://www.geonames.org/"],
+    "MeSH":          ["http://id.nlm.nih.gov/mesh/"],
+    "AGROVOC":       ["http://aims.fao.org/aos/agrovoc/"],
+    "Gene Ontology": ["http://purl.obolibrary.org/obo/GO_"],
+    "ENVO":          ["http://purl.obolibrary.org/obo/ENVO_"],
+    "DataCite":      ["http://datacite.org/schema/"],
+    "BioPortal":     ["http://bioportal.bioontology.org/"],
+    "EBI":           ["http://www.ebi.ac.uk/"],
+}
+
+# PROV/PAV URIs used by F-UJI for FsF-R1.2-01M-2
+PROV_ONTOLOGY_URIS = [
+    "http://www.w3.org/ns/prov",
+    "https://www.w3.org/ns/prov",
+    "http://purl.org/pav",
+    "https://purl.org/pav",
+]
+
+# Content-type → format name mapping used for landing-page detection
+CONTENT_TYPE_MAP = {
+    "text/turtle":                   "turtle",
+    "application/rdf+xml":           "rdf",
+    "application/ld+json":           "json-ld",
+    "application/json":              "json",
+    "text/csv":                      "csv",
+    "application/xml":               "xml",
+    "text/xml":                      "xml",
+    "application/zip":               "zip",
+    "application/x-netcdf":          "netcdf",
+    "application/netcdf":            "netcdf",
+    "application/vnd.ms-excel":      "xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+}
+
+# File extensions to scan for in HTML when the landing page returns HTML
+HTML_EXTENSION_MAP = {
+    ".csv": "csv", ".json": "json", ".jsonld": "json-ld",
+    ".rdf": "rdf", ".ttl": "turtle", ".xml": "xml",
+    ".nc": "netcdf", ".xlsx": "xlsx", ".zip": "zip",
+    ".geojson": "json", ".parquet": "parquet",
+}
+
+
 def load_profile(profile_name: str) -> Profile:
     from app.services.profile_service import (
         get_profile_by_domain, get_profile_by_name
@@ -118,6 +205,87 @@ def check_vocabulary(metadata: NormalizedMetadata,
     return False
 
 
+def is_spdx_license(license_val: str) -> bool:
+    """Return True if license_val matches an SPDX ID or contains a known
+    SPDX-resolvable URI fragment (F-UJI style R1.1 check)."""
+    lower = license_val.lower()
+    for frag in SPDX_URI_FRAGMENTS:
+        if frag in lower:
+            return True
+    # Normalise spaces/dashes and check against the SPDX set
+    normalised = lower.replace(" ", "-").strip("/")
+    for spdx_id in SPDX_LICENSES:
+        if spdx_id in normalised or normalised.endswith(spdx_id):
+            return True
+    return False
+
+
+def is_license_uri(license_val: str) -> bool:
+    """Return True if the license value is a URI (FAIR-Checker style)."""
+    return license_val.strip().startswith(("http://", "https://"))
+
+
+def fetch_landing_page_formats(url: str) -> tuple:
+    """Attempt to detect data formats from a landing page URL.
+
+    Sends a content-negotiation GET request, inspects the Content-Type
+    response header, and — if the response is HTML — scans the body for
+    known file extension hints in download links.
+
+    Returns (formats: list[str], source_note: str).  Always returns
+    gracefully; network errors produce an empty list and an explanation.
+    """
+    try:
+        import requests  # type: ignore
+
+        # Prefer RDF serialisations (FAIR-Checker / F-UJI behaviour)
+        headers = {
+            "Accept": (
+                "text/turtle,"
+                "application/rdf+xml;q=0.9,"
+                "application/ld+json;q=0.8,"
+                "text/html;q=0.5,"
+                "*/*;q=0.3"
+            ),
+            "User-Agent": "ProFAIR/1.0 FAIR-Assessment-Tool",
+        }
+        resp = requests.get(url, headers=headers,
+                            allow_redirects=True, timeout=8)
+        raw_ct = resp.headers.get("content-type", "")
+        ct = raw_ct.lower().split(";")[0].strip()
+
+        formats: list = []
+        source_note = f"Content-Type: {ct or 'not returned'}"
+
+        # Direct match on content-type
+        if ct in CONTENT_TYPE_MAP:
+            formats.append(CONTENT_TYPE_MAP[ct])
+            return formats, source_note
+
+        # HTML response — scan body for download-link extensions
+        if "text/html" in ct:
+            html = resp.text.lower()
+            for ext, fmt in HTML_EXTENSION_MAP.items():
+                if ext in html and fmt not in formats:
+                    formats.append(fmt)
+            if formats:
+                source_note = (
+                    f"HTML download links detected on landing page "
+                    f"({resp.url})"
+                )
+            else:
+                source_note = (
+                    f"Landing page is HTML but no known format "
+                    f"extensions found ({resp.url})"
+                )
+            return formats, source_note
+
+        return [], f"Landing page returned unrecognised content-type: {ct}"
+
+    except Exception as exc:
+        return [], f"Landing page not reachable ({type(exc).__name__})"
+
+
 def get_maturity(score: float) -> tuple:
     if score >= 80:
         return (
@@ -211,32 +379,48 @@ def check_f1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    all_required = list(dict.fromkeys(
-        profile.required_metadata_fields + profile.custom_metadata_fields
-    ))
- 
-    if not all_required:
-        # Even with no required fields, check DCAT if profile requires it
-        if getattr(profile, 'require_dcat_properties', False):
-            dcat_found = metadata.custom.get("_dcat_properties", "")
-            if not dcat_found:
-                return MetricResult(
-                    metric_id="F2", principle="F", priority="essential",
-                    status="partial",
-                    description="No required fields configured but DCAT/Dublin "
-                                "Core RDF properties not detected",
-                    evidence="No DCAT properties found in landing page metadata",
-                    recommendation="Add DCAT or Dublin Core RDF properties "
-                                   "such as dct:title, dct:description, "
-                                   "dcat:accessURL to your metadata"
-                )
-        return MetricResult(
-            metric_id="F2", principle="F", priority="essential",
-            status="pass",
-            description="No specific metadata fields required by this profile",
-            evidence="No required fields configured"
+    all_required = (profile.required_metadata_fields +
+                    profile.custom_metadata_fields)
+
+    # ── FAIR-Checker style: DCAT/schema.org property check ────────
+    dcat_note = ""
+    if profile.require_dcat_properties:
+        dcat_props = [
+            "dcat:", "@type", "schema:", "dcterms:identifier",
+            "dcat:distribution", "schema:dataset", "schema:url",
+        ]
+        search = (
+            str(metadata.core.dict()).lower() +
+            str(metadata.custom).lower()
         )
- 
+        found_dcat = [p for p in dcat_props if p.lower() in search]
+        if found_dcat:
+            dcat_note = (
+                f" DCAT/schema.org properties confirmed: "
+                f"{', '.join(found_dcat)}."
+            )
+        else:
+            dcat_note = (
+                " Note: No DCAT or schema.org property signatures "
+                "detected in the available metadata. The repository "
+                "may not expose structured linked-data properties "
+                "through its API."
+            )
+
+    if not all_required:
+        return MetricResult(
+            metric_id="F2",
+            principle="F",
+            priority="essential",
+            status="pass" if not dcat_note or "confirmed" in dcat_note
+                else "partial",
+            description="No specific metadata fields required by this profile",
+            evidence=(
+                "No required fields configured."
+                + dcat_note
+            )
+        )
+
     missing = []
     present = []
     for field in all_required:
@@ -247,58 +431,43 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             present.append(field)
         else:
             missing.append(field)
- 
+
     if not missing:
-        # All required fields present — now check DCAT if profile requires it
-        if getattr(profile, 'require_dcat_properties', False):
-            dcat_found = metadata.custom.get("_dcat_properties", "")
-            if not dcat_found:
-                return MetricResult(
-                    metric_id="F2", principle="F", priority="essential",
-                    status="partial",
-                    description="Standard metadata fields present but "
-                                "DCAT/Dublin Core RDF properties not detected",
-                    evidence=f"Present: {', '.join(present)}",
-                    recommendation="Add DCAT or Dublin Core RDF properties "
-                                   "such as dct:title, dct:description, "
-                                   "dcat:accessURL to your metadata"
-                )
         return MetricResult(
-            metric_id="F2", principle="F", priority="essential",
+            metric_id="F2",
+            principle="F",
+            priority="essential",
             status="pass",
             description="All required metadata fields are present",
-            evidence=f"Present: {', '.join(present)}"
+            evidence=f"Present: {', '.join(present)}" + dcat_note
         )
- 
     if present:
         custom_missing = [f for f in missing
-                          if f in profile.custom_metadata_fields
-                          and f not in profile.required_metadata_fields]
+                          if f in profile.custom_metadata_fields]
         note = ""
         if custom_missing:
             note = (f" Note: {', '.join(custom_missing)} are domain-specific "
-                    f"fields. If these exist in the dataset record, the "
-                    f"repository API may not expose them — contact the "
-                    f"repository to request metadata export, or add them "
-                    f"directly to the dataset record if they are genuinely "
-                    f"missing.")
+                    f"fields that may not be exposed by the repository API.")
         return MetricResult(
-            metric_id="F2", principle="F", priority="essential",
+            metric_id="F2",
+            principle="F",
+            priority="essential",
             status="partial",
             description="Some required metadata fields are missing",
             evidence=f"Present: {', '.join(present)} | "
-                     f"Missing: {', '.join(missing)}",
+                f"Missing: {', '.join(missing)}" + dcat_note,
             recommendation=f"Add missing fields: {', '.join(missing)}." + note
         )
     return MetricResult(
-        metric_id="F2", principle="F", priority="essential",
+        metric_id="F2",
+        principle="F",
+        priority="essential",
         status="fail",
         description="All required metadata fields are missing",
-        evidence=f"Missing: {', '.join(missing)}",
+        evidence=f"Missing: {', '.join(missing)}" + dcat_note,
         recommendation=f"No required fields found. "
-                       f"This profile requires: {', '.join(all_required)}"
+            f"This profile requires: {', '.join(all_required)}"
     )
- 
 
 
 def check_f3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
@@ -354,8 +523,86 @@ def check_f4(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 # ─── A Metrics ────────────────────────────────────────────────
 
 def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+    """Evaluate A1 — Metadata Retrievability.
+
+    When ``profile.check_access_level`` is True (F-UJI FsF-A1-01M style),
+    the metric additionally requires that access level / access rights
+    information is declared in the metadata.  Without it the result is
+    downgraded to partial even when a valid access URL is present.
+    """
     url = metadata.core.access_url
-    if url and (url.startswith("http://") or url.startswith("https://")):
+    url_ok = bool(url and (
+        url.startswith("http://") or url.startswith("https://")
+    ))
+
+    # ── F-UJI style: access level / access rights declaration ────
+    if profile.check_access_level:
+        # Fields that carry access level info in typical repository APIs
+        access_field_names = [
+            "access_level", "access_rights", "accessrights",
+            "accessLevel", "accessRights", "rights",
+            "openaire_access", "access", "availability",
+        ]
+        access_found = None
+        for field in access_field_names:
+            val = (metadata.custom.get(field)
+                   or metadata.custom.get(field.lower()))
+            if val:
+                access_found = f"{field}: {val}"
+                break
+
+        # Fall back: infer open access from a known-open license value
+        if not access_found and metadata.core.license:
+            lic = metadata.core.license.lower()
+            open_terms = ["cc0", "cc-by", "cc by", "public domain",
+                          "open access", "creativecommons.org"]
+            if any(t in lic for t in open_terms):
+                access_found = (
+                    f"Inferred open access from license: "
+                    f"{metadata.core.license}"
+                )
+
+        if url_ok:
+            if access_found:
+                return MetricResult(
+                    metric_id="A1",
+                    principle="A",
+                    priority="essential",
+                    status="pass",
+                    description=(
+                        "Metadata is accessible via HTTP/HTTPS and "
+                        "access conditions are declared"
+                    ),
+                    evidence=f"Access URL: {url} | {access_found}"
+                )
+            return MetricResult(
+                metric_id="A1",
+                principle="A",
+                priority="essential",
+                status="partial",
+                description=(
+                    "Metadata is accessible via HTTP/HTTPS but "
+                    "access level/conditions are not declared in metadata"
+                ),
+                evidence=f"Access URL: {url} | No access_level field found",
+                recommendation=(
+                    "Add access level or access rights information to "
+                    "metadata (e.g. access_level: open, access_rights: "
+                    "unrestricted). F-UJI requires this field to be "
+                    "explicitly present."
+                )
+            )
+        return MetricResult(
+            metric_id="A1",
+            principle="A",
+            priority="essential",
+            status="fail",
+            description="No HTTP/HTTPS access URL found",
+            recommendation="Provide an access URL using HTTP or HTTPS"
+        )
+
+    # ── Default: HTTP/HTTPS URL presence only ────────────────────
+    if url_ok:
         return MetricResult(
             metric_id="A1",
             principle="A",
@@ -481,71 +728,217 @@ def check_a2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 # ─── I Metrics ────────────────────────────────────────────────
 
 def check_i1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
-    formats = [f.lower() for f in metadata.core.formats]
+    """Evaluate I1 — Knowledge Representation Language / File Format.
+
+    Checking strategy is controlled by ``profile.i1_check_source``:
+    - ``"metadata"``      – read format from the metadata API (default)
+    - ``"landing_page"``  – detect format by requesting the access URL
+                            (F-UJI style: inspects content-type + HTML)
+    - ``"both"``          – combine both sources
+
+    When ``profile.check_rdf_triples`` is True the function behaves in
+    FAIR-Checker mode: it attempts RDF content negotiation on the access
+    URL and passes if any RDF serialisation is returned, regardless of
+    the ``accepted_formats`` list.
+    """
     accepted = [f.lower() for f in profile.accepted_formats]
-    matched = [f for f in formats if any(a in f or f in a for a in accepted)]
- 
-    if matched:
-        return MetricResult(
-            metric_id="I1", principle="I", priority="important",
-            status="pass",
-            description="Data is in an accepted machine-readable format",
-            evidence=f"Format detected: {', '.join(matched)}"
-        )
- 
-    # FAIR-Checker style: check if JSON-LD was found on landing page
-    if getattr(profile, 'check_rdf_triples', False):
-        jsonld_vocabs = metadata.custom.get("_jsonld_vocabularies", "")
-        jsonld_fmt = metadata.custom.get("_jsonld_format", "")
-        has_jsonld = bool(jsonld_vocabs or jsonld_fmt)
-        if has_jsonld:
-            return MetricResult(
-                metric_id="I1", principle="I", priority="important",
-                status="partial",
-                description="JSON-LD metadata detected on landing page but "
-                            "no format declared in repository metadata",
-                evidence="JSON-LD found via content negotiation on landing page",
-                recommendation="Declare the data format explicitly in "
-                               "the repository metadata record"
+    formats_found: list = []
+    evidence_parts: list = []
+
+    # ── Metadata source ────────────────────────────────────────
+    if profile.i1_check_source in ("metadata", "both"):
+        meta_formats = [f.lower() for f in metadata.core.formats]
+        if meta_formats:
+            formats_found.extend(meta_formats)
+            evidence_parts.append(
+                f"Metadata formats: {', '.join(meta_formats)}"
             )
- 
-    if formats:
+
+    # ── Landing page source ────────────────────────────────────
+    needs_lp = (
+        profile.i1_check_source in ("landing_page", "both")
+        or profile.check_rdf_triples
+    )
+    lp_formats: list = []
+    lp_note = ""
+    if needs_lp:
+        url = metadata.core.access_url
+        if url:
+            lp_formats, lp_note = fetch_landing_page_formats(url)
+            for f in lp_formats:
+                if f not in formats_found:
+                    formats_found.append(f)
+            if lp_formats:
+                evidence_parts.append(
+                    f"Landing page formats: {', '.join(lp_formats)} "
+                    f"({lp_note})"
+                )
+            else:
+                evidence_parts.append(
+                    f"Landing page: no format detected ({lp_note})"
+                )
+        else:
+            evidence_parts.append(
+                "Landing page: skipped — no access URL in metadata"
+            )
+
+    evidence_str = " | ".join(evidence_parts) if evidence_parts \
+        else "No format information found"
+
+    # ── FAIR-Checker mode: pass on any RDF serialisation ──────
+    if profile.check_rdf_triples:
+        rdf_types = {"turtle", "rdf", "json-ld", "rdf/xml"}
+        rdf_found = [f for f in formats_found
+                     if any(r in f for r in rdf_types)]
+        if rdf_found:
+            return MetricResult(
+                metric_id="I1",
+                principle="I",
+                priority="important",
+                status="pass",
+                description="Linked data representation detected via "
+                    "content negotiation on the landing page",
+                evidence=(
+                    f"RDF format: {', '.join(rdf_found)} | {evidence_str}"
+                )
+            )
         return MetricResult(
-            metric_id="I1", principle="I", priority="important",
+            metric_id="I1",
+            principle="I",
+            priority="important",
+            status="fail",
+            description="No linked data representation (RDF/JSON-LD) "
+                "detected on landing page",
+            evidence=evidence_str,
+            recommendation=(
+                "Ensure the landing page supports content negotiation "
+                "for RDF serialisations (Turtle, JSON-LD, or RDF/XML). "
+                f"Note: detection depends on landing page accessibility. "
+                f"{lp_note}"
+            )
+        )
+
+    # ── Standard format check ──────────────────────────────────
+    matched = [
+        f for f in formats_found
+        if any(a in f or f in a for a in accepted)
+    ]
+
+    if matched:
+        source_label = {
+            "metadata": "from metadata",
+            "landing_page": "from landing page",
+            "both": "from metadata and/or landing page",
+        }.get(profile.i1_check_source, "")
+        return MetricResult(
+            metric_id="I1",
+            principle="I",
+            priority="important",
+            status="pass",
+            description=(
+                f"Data is in an accepted machine-readable format"
+                f"{' (' + source_label + ')' if source_label else ''}"
+            ),
+            evidence=evidence_str
+        )
+
+    if formats_found:
+        return MetricResult(
+            metric_id="I1",
+            principle="I",
+            priority="important",
             status="partial",
-            description="Format present but not in accepted list",
-            evidence=f"Current format: {', '.join(formats)}",
-            recommendation=f"Format '{', '.join(formats)}' not accepted. "
+            description="Format detected but not in accepted list",
+            evidence=evidence_str,
+            recommendation=(
+                f"Format(s) '{', '.join(formats_found)}' not accepted. "
                 f"This profile requires one of: "
                 f"{', '.join(profile.accepted_formats)}"
+            )
         )
+
     return MetricResult(
-        metric_id="I1", principle="I", priority="important",
+        metric_id="I1",
+        principle="I",
+        priority="important",
         status="fail",
-        description="No file format information found in metadata",
-        recommendation=f"Specify the data format. "
+        description="No file format information found",
+        evidence=evidence_str,
+        recommendation=(
+            f"Specify the data format. "
             f"This profile accepts: {', '.join(profile.accepted_formats)}"
+            + (
+                " Note: this profile checks the landing page — "
+                "ensure the access URL is reachable."
+                if profile.i1_check_source != "metadata" else ""
+            )
+        )
     )
- 
 
 
-def check_i2(
-    metadata: NormalizedMetadata,
-    profile: Profile,
-    vocab_fairness: dict = None
-) -> MetricResult:
+def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
+    """Evaluate I2 — Use of FAIR Vocabularies.
+
+    When ``profile.i2_namespace_check`` is True (F-UJI FsF-I2-01M style),
+    detection is based on scanning metadata for registered ontology namespace
+    URIs (e.g. http://schema.org/, http://www.w3.org/ns/dcat) rather than
+    keyword matching.  This mirrors how F-UJI identifies semantic resources.
+
+    When the flag is False (default), the original keyword-matching logic
+    is used, which is more lenient.
     """
-    I2: Metadata uses FAIR vocabularies.
-    Two-layer check:
-    1. Vocabulary presence — are required vocabulary terms referenced in metadata?
-    2. Vocabulary FAIRness — does the vocabulary itself meet the profile's
-       minimum FAIR level? (Cox et al. 2021, Ten Simple Rules for FAIR Vocabs)
-    """
-    from app.services.vocabulary_service import meets_fairness_threshold
+    search_text = (
+        str(metadata.core.dict()).lower() + str(metadata.custom).lower()
+    )
 
-    vocab_fairness = vocab_fairness or {}
-    min_level = getattr(profile, "min_vocab_fairness_level", "none")
+    # ── F-UJI style: namespace URI detection ──────────────────────
+    if profile.i2_namespace_check:
+        found_ns: list = []
+        for vocab_name, uris in KNOWN_VOCAB_NAMESPACES.items():
+            if any(uri.lower() in search_text for uri in uris):
+                found_ns.append(vocab_name)
 
+        if found_ns:
+            return MetricResult(
+                metric_id="I2",
+                principle="I",
+                priority="important",
+                status="pass",
+                description=(
+                    "Metadata uses registered semantic vocabulary "
+                    "namespaces"
+                ),
+                evidence=(
+                    f"Registered namespaces detected: "
+                    f"{', '.join(found_ns)}"
+                )
+            )
+        return MetricResult(
+            metric_id="I2",
+            principle="I",
+            priority="important",
+            status="fail",
+            description=(
+                "No registered semantic vocabulary namespace URIs "
+                "detected in metadata"
+            ),
+            evidence=(
+                "Namespace URI scan found no matches against known "
+                "registered vocabularies. Note: this check requires "
+                "namespace URIs to be present in the raw metadata "
+                "response — many REST APIs serialize vocabulary "
+                "references as plain text rather than URIs."
+            ),
+            recommendation=(
+                "Ensure metadata includes explicit vocabulary namespace "
+                "URIs (e.g. http://schema.org/, "
+                "http://www.w3.org/ns/dcat). "
+                "Use linked-data serializations (JSON-LD, RDF/XML, "
+                "Turtle) that embed namespace declarations."
+            )
+        )
+
+    # ── Default: keyword-based detection ──────────────────────────
     all_vocabs = []
     if profile.required_vocabulary:
         all_vocabs.append({
@@ -555,25 +948,14 @@ def check_i2(
         })
     all_vocabs.extend(profile.custom_vocabularies)
 
-    seen = set()
-    unique_vocabs = []
-    for v in all_vocabs:
-        name = v.get("name", "").lower()
-        if name not in seen:
-            seen.add(name)
-            unique_vocabs.append(v)
-    all_vocabs = unique_vocabs
-
     if not all_vocabs:
-        # no vocab required — check for any known standard vocabularies
         known = {
             "schema.org": ["schema.org", '"@context"', "schema:"],
-            "Dublin Core": ["dcterms:", "dc.title", "dublin core", "dcterms", "dc:"],
+            "Dublin Core": ["dcterms:", "dc.title", "dublin core",
+                            "dcterms", "dc:"],
             "DCAT": ["dcat:", "dcat."],
             "SKOS": ["skos:", "skos."]
         }
-        search_text = (str(metadata.core.dict()).lower() +
-                       str(metadata.custom).lower())
         found = [name for name, kws in known.items()
                  if any(kw.lower() in search_text for kw in kws)]
         if found:
@@ -596,101 +978,121 @@ def check_i2(
                 "to improve interoperability"
         )
 
-    # Layer 1: presence check
-    passed_presence = []
-    failed_presence = []
+    passed = []
+    failed = []
     for vocab in all_vocabs:
         if check_vocabulary(metadata, vocab):
-            passed_presence.append(vocab["name"])
+            passed.append(vocab["name"])
         else:
-            failed_presence.append(vocab["name"])
+            failed.append(vocab["name"])
 
-    # Layer 2: vocabulary FAIR check (if min_level is set)
-    failed_fairness = []
-    fairness_notes = []
-    if min_level != "none" and vocab_fairness:
-        for vocab_name in passed_presence:
-            result = vocab_fairness.get(vocab_name)
-            if result and not meets_fairness_threshold(result, min_level):
-                failed_fairness.append(vocab_name)
-                fairness_notes.append(
-                    f"{vocab_name} is at '{result.get('level', 'unknown')}' "
-                    f"FAIR level (required: {min_level}). {result.get('note', '')}"
-                )
-
-    # Compose result
-    if failed_presence:
-        evidence = f"Detected: {', '.join(passed_presence) or 'none'} | " \
-                   f"Not detected: {', '.join(failed_presence)}"
-        if passed_presence:
-            return MetricResult(
-                metric_id="I2",
-                principle="I",
-                priority="important",
-                status="partial",
-                description="Some required vocabularies not detected in metadata",
-                evidence=evidence + ". Note: detection depends on "
-                    "repository API response.",
-                recommendation=f"Add references to: {', '.join(failed_presence)}. "
-                    f"Ensure metadata uses these vocabularies and the "
-                    f"repository exposes them through its API."
-            )
+    if not failed:
         return MetricResult(
             metric_id="I2",
             principle="I",
             priority="important",
-            status="fail",
-            description="Required vocabularies not detected in metadata",
-            evidence=evidence + ". Note: detection depends on "
-                "repository API response.",
-            recommendation=f"This profile requires: {', '.join(failed_presence)}. "
-                f"Ensure metadata uses these controlled vocabularies."
+            status="pass",
+            description="Metadata uses all required vocabularies",
+            evidence=f"Vocabularies confirmed: {', '.join(passed)}"
         )
-
-    # All vocabs detected — now check FAIR level
-    if failed_fairness:
+    if passed:
         return MetricResult(
             metric_id="I2",
             principle="I",
             priority="important",
             status="partial",
-            description=f"Vocabulary detected but does not meet minimum "
-                f"FAIR level ({min_level}) required by this profile",
-            evidence=f"Vocabularies detected: {', '.join(passed_presence)}. "
-                f"FAIR check: {'; '.join(fairness_notes)}",
-            recommendation=f"This profile requires vocabularies at '{min_level}' "
-                f"FAIR level or above. Consider using a more FAIR vocabulary "
-                f"(e.g. one with a resolvable URI, machine-readable format, "
-                f"and declared licence) as recommended by Cox et al. (2021)."
+            description="Some required vocabularies not detected",
+            evidence=f"Found: {', '.join(passed)} | "
+                f"Not detected: {', '.join(failed)}. "
+                f"Note: detection depends on repository API response.",
+            recommendation=f"Add references to: {', '.join(failed)}. "
+                f"Ensure metadata uses these vocabularies and that "
+                f"the repository exposes them through its API."
         )
-
-    # Build evidence with fairness info
-    if min_level != "none" and vocab_fairness:
-        fairness_evidence = []
-        for name in passed_presence:
-            r = vocab_fairness.get(name, {})
-            fairness_evidence.append(
-                f"{name} (FAIR level: {r.get('level', 'unknown')})"
-            )
-        evidence = f"Vocabularies confirmed: {', '.join(fairness_evidence)}"
-    else:
-        evidence = f"Vocabularies confirmed: {', '.join(passed_presence)}"
-
     return MetricResult(
         metric_id="I2",
         principle="I",
         priority="important",
-        status="pass",
-        description="Metadata uses required FAIR vocabularies",
-        evidence=evidence
+        status="fail",
+        description="Required vocabularies not detected in metadata",
+        evidence=f"Required but not found: {', '.join(failed)}. "
+            f"Note: vocabulary detection depends on the repository "
+            f"exposing vocabulary references in their API response.",
+        recommendation=f"This profile requires: {', '.join(failed)}. "
+            f"Ensure metadata uses these controlled vocabularies and "
+            f"that your repository exposes vocabulary references "
+            f"through its metadata API."
     )
 
+
 def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
-    import re
+    """Evaluate I3 — Qualified References to Other Data.
+
+    When ``profile.min_url_authorities > 0`` (FAIR-Checker style),
+    the check counts how many distinct URL hostname authorities appear
+    anywhere in the metadata.  This mirrors FAIR-Checker's requirement
+    that metadata link to multiple external resources.
+
+    When ``min_url_authorities`` is 0 (default), the check falls back
+    to keyword search for qualified relation terms.
+    """
+    # ── FAIR-Checker style: URL authority count ────────────────
+    if profile.min_url_authorities > 0:
+        search = str(metadata.core.dict()) + str(metadata.custom)
+        # Extract all hostnames from URLs in the metadata
+        raw_urls = re.findall(r"https?://([^/\s\"\'>\]]+)", search)
+        # Normalise: strip common suffixes, lower-case
+        domains = {
+            re.sub(r":\d+$", "", h).lower()
+            for h in raw_urls
+            if h  # exclude empty
+        }
+        n = len(domains)
+        req = profile.min_url_authorities
+        if n >= req:
+            sample = sorted(domains)[:5]
+            return MetricResult(
+                metric_id="I3",
+                principle="I",
+                priority="important",
+                status="pass",
+                description=(
+                    f"Metadata references {n} distinct URL "
+                    f"authorit{'y' if n == 1 else 'ies'}, "
+                    f"meeting the minimum of {req}"
+                ),
+                evidence=(
+                    f"URL authorities ({n}): "
+                    f"{', '.join(sample)}"
+                    f"{'...' if n > 5 else ''}"
+                )
+            )
+        return MetricResult(
+            metric_id="I3",
+            principle="I",
+            priority="important",
+            status="partial" if n > 0 else "fail",
+            description=(
+                f"Insufficient URL authorities in metadata "
+                f"({n} found, {req} required)"
+            ),
+            evidence=(
+                f"URL authorities found: "
+                f"{', '.join(sorted(domains)) if domains else 'none'}"
+            ),
+            recommendation=(
+                f"Add links to related datasets or resources from "
+                f"additional domains. "
+                f"This profile requires at least {req} distinct URL "
+                f"authorities across all metadata fields."
+            )
+        )
+
+    # ── Default: qualified-relation keyword search ─────────────
     custom_str = str(metadata.custom).lower()
     core_str = str(metadata.core.dict()).lower()
     search = custom_str + core_str
- 
+
     reference_keywords = [
         "related", "references", "citation", "ispartof",
         "isderivedfrom", "iscitedby", "isversionof",
@@ -698,56 +1100,40 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         "dcterms:references", "dcterms:relation"
     ]
     found = [kw for kw in reference_keywords if kw in search]
- 
-    # FAIR-Checker style: count distinct URL authorities
-    min_auth = getattr(profile, 'min_url_authorities', 0)
-    if min_auth > 0:
-        all_urls = re.findall(r'https?://([^/\s"\'\\]+)', search)
-        domains = set()
-        for url in all_urls:
-            domain = url.split('/')[0]
-            if domain:
-                domains.add(domain)
-        if len(domains) <= min_auth:
-            return MetricResult(
-                metric_id="I3", principle="I", priority="important",
-                status="fail",
-                description=f"Only {len(domains)} distinct URL "
-                            f"authorit{'y' if len(domains) == 1 else 'ies'} "
-                            f"found in metadata",
-                evidence=f"Domains found: {', '.join(list(domains)[:5])}",
-                recommendation="Add more diverse external links to related "
-                               "datasets, publications, and resources "
-                               "from different domains"
-            )
- 
+
     if found:
         return MetricResult(
-            metric_id="I3", principle="I", priority="important",
+            metric_id="I3",
+            principle="I",
+            priority="important",
             status="pass",
             description="Metadata includes qualified references to "
-                        "related resources",
+                "related resources",
             evidence=f"Reference fields detected: {', '.join(found)}"
         )
- 
+
     if profile.require_related_resources:
         return MetricResult(
-            metric_id="I3", principle="I", priority="important",
+            metric_id="I3",
+            principle="I",
+            priority="important",
             status="fail",
             description="No qualified references found — required by "
-                        "this profile",
+                "this profile",
             evidence="No relatedIdentifiers or citation fields detected",
             recommendation="Add qualified references to related datasets, "
-                           "publications, or derived resources"
+                "publications, or derived resources"
         )
- 
+
     return MetricResult(
-        metric_id="I3", principle="I", priority="important",
+        metric_id="I3",
+        principle="I",
+        priority="important",
         status="partial",
         description="No qualified references found in metadata",
         evidence="No relatedIdentifiers or citation links detected",
         recommendation="Consider adding references to related datasets "
-                       "or publications to improve interoperability"
+            "or publications to improve interoperability"
     )
 
 
@@ -755,9 +1141,8 @@ def check_i3(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     core = metadata.core
-    all_fields = list(dict.fromkeys(
-        profile.required_metadata_fields + profile.custom_metadata_fields
-    ))
+    all_fields = (profile.required_metadata_fields +
+                  profile.custom_metadata_fields)
     if not all_fields:
         all_fields = ["title", "description", "creator", "license"]
 
@@ -786,7 +1171,8 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             priority="essential",
             status="partial",
             description="Metadata missing some fields needed for reuse",
-            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
+            evidence=f"Present: {', '.join(present)} | "
+                f"Missing: {', '.join(missing)}",
             recommendation=f"Add missing fields: {', '.join(missing)}"
         )
     return MetricResult(
@@ -802,6 +1188,23 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
 
 def check_r1_1(metadata: NormalizedMetadata,
                profile: Profile) -> MetricResult:
+    """Evaluate R1.1 — Data Usage License.
+
+    Three strictness modes controlled by profile flags:
+
+    1. ``r1_1_spdx_check = True``  (F-UJI style)
+       Validates the license value against the SPDX recognised list.
+       Accepts both SPDX identifiers (e.g. 'CC-BY-4.0') and URIs from
+       known registries (creativecommons.org, spdx.org, opensource.org).
+
+    2. ``r1_1_require_license_uri = True`` (FAIR-Checker style)
+       Requires the license value to be a URI (starts with http/https).
+       Text-only license values ('CC-BY 4.0') produce a partial result.
+
+    3. Neither flag set (default)
+       Passes on any machine-readable license, optionally matched
+       against ``accepted_licenses``.
+    """
     license_val = metadata.core.license
     accepted = [l.lower() for l in profile.accepted_licenses]
     required = profile.required_license
@@ -822,6 +1225,60 @@ def check_r1_1(metadata: NormalizedMetadata,
 
     license_lower = license_val.lower()
 
+    # ── F-UJI style: SPDX validation ──────────────────────────
+    if profile.r1_1_spdx_check:
+        if is_spdx_license(license_val):
+            return MetricResult(
+                metric_id="R1.1",
+                principle="R",
+                priority="essential",
+                status="pass",
+                description="Dataset has a machine-readable, "
+                    "SPDX-recognised license",
+                evidence=f"SPDX-recognised license: {license_val}"
+            )
+        return MetricResult(
+            metric_id="R1.1",
+            principle="R",
+            priority="essential",
+            status="partial",
+            description="License found but not recognised as an SPDX "
+                "standard identifier or URI",
+            evidence=f"License: {license_val}",
+            recommendation=(
+                "Use an SPDX licence identifier or a canonical URI "
+                "(e.g. 'CC-BY-4.0' or "
+                "'https://creativecommons.org/licenses/by/4.0/'). "
+                "See https://spdx.org/licenses/ for the full list."
+            )
+        )
+
+    # ── FAIR-Checker style: require URI ────────────────────────
+    if profile.r1_1_require_license_uri:
+        if is_license_uri(license_val):
+            return MetricResult(
+                metric_id="R1.1",
+                principle="R",
+                priority="essential",
+                status="pass",
+                description="Dataset has a machine-readable license URI",
+                evidence=f"License URI: {license_val}"
+            )
+        return MetricResult(
+            metric_id="R1.1",
+            principle="R",
+            priority="essential",
+            status="partial",
+            description="License text found but not as a machine-readable URI",
+            evidence=f"License (text only): {license_val}",
+            recommendation=(
+                "Provide the license as a URI so it is machine-readable "
+                "(e.g. https://creativecommons.org/licenses/by/4.0/). "
+                "A plain text label is not sufficient for this profile."
+            )
+        )
+
+    # ── Default: accepted-list or any-license check ────────────
     license_aliases = {
         "cc-by": ["cc-by", "creativecommons.org/licenses/by",
                   "cc by", "attribution"],
@@ -885,13 +1342,21 @@ def check_r1_1(metadata: NormalizedMetadata,
 
 def check_r1_2(metadata: NormalizedMetadata,
                profile: Profile) -> MetricResult:
+    """Evaluate R1.2 — Data Provenance.
+
+    When ``profile.r1_2_require_prov_ontology`` is True (F-UJI
+    FsF-R1.2-01M-2 style), a full pass additionally requires that at
+    least one formal provenance ontology URI (PROV-O or PAV) is present
+    anywhere in the metadata.  Without it the result is downgraded to
+    partial even when all named provenance fields are present.
+    """
     core = metadata.core
     required_fields = profile.required_provenance_fields
     field_map = {
-        "creator": core.creator,
+        "creator":        core.creator,
         "provenance_date": core.provenance_date,
-        "description": core.description,
-        "title": core.title,
+        "description":    core.description,
+        "title":          core.title,
     }
 
     present = []
@@ -903,14 +1368,53 @@ def check_r1_2(metadata: NormalizedMetadata,
         else:
             missing.append(field)
 
-    if not missing:
+    # ── Check for formal PROV/PAV ontology (F-UJI test 2) ────────
+    prov_note = ""
+    if profile.r1_2_require_prov_ontology:
+        search = str(metadata.core.dict()) + str(metadata.custom)
+        prov_found = [uri for uri in PROV_ONTOLOGY_URIS if uri in search]
+        if prov_found:
+            prov_note = (
+                f" Formal provenance ontology detected: "
+                f"{prov_found[0]}"
+            )
+        else:
+            prov_note = (
+                " Note: no formal provenance ontology URI (PROV-O or PAV) "
+                "found in metadata — required for a full pass by this profile."
+            )
+
+    fields_ok = not missing
+
+    if fields_ok:
+        if profile.r1_2_require_prov_ontology and not prov_found:
+            return MetricResult(
+                metric_id="R1.2",
+                principle="R",
+                priority="important",
+                status="partial",
+                description=(
+                    "Provenance fields present but no formal PROV/PAV "
+                    "ontology URI found in metadata"
+                ),
+                evidence=(
+                    f"Provenance fields: {', '.join(present)}" + prov_note
+                ),
+                recommendation=(
+                    "Include a formal provenance ontology reference "
+                    "(PROV-O: http://www.w3.org/ns/prov or "
+                    "PAV: http://purl.org/pav) in metadata. "
+                    "Repositories using JSON-LD or RDF serialisations "
+                    "typically embed these automatically."
+                )
+            )
         return MetricResult(
             metric_id="R1.2",
             principle="R",
             priority="important",
             status="pass",
             description="All required provenance information is present",
-            evidence=f"Provenance fields: {', '.join(present)}"
+            evidence=f"Provenance fields: {', '.join(present)}" + prov_note
         )
     if present:
         return MetricResult(
@@ -919,8 +1423,10 @@ def check_r1_2(metadata: NormalizedMetadata,
             priority="important",
             status="partial",
             description="Incomplete provenance information",
-            evidence=f"Present: {', '.join(present)} | "
-                f"Missing: {', '.join(missing)}",
+            evidence=(
+                f"Present: {', '.join(present)} | "
+                f"Missing: {', '.join(missing)}" + prov_note
+            ),
             recommendation=f"Add missing provenance: {', '.join(missing)}"
         )
     return MetricResult(
@@ -930,17 +1436,40 @@ def check_r1_2(metadata: NormalizedMetadata,
         status="fail",
         description="No provenance information found",
         evidence=f"Missing: {', '.join(missing)}",
-        recommendation=f"Add provenance fields: "
-            f"{', '.join(required_fields)}"
+        recommendation=f"Add provenance fields: {', '.join(required_fields)}"
     )
 
 
 def check_r1_3(metadata: NormalizedMetadata,
                profile: Profile) -> MetricResult:
-    formats = [f.lower() for f in metadata.core.formats]
+    """Evaluate R1.3 — Meets Domain-Relevant Community Standards.
+
+    Uses the same format sources as I1 (metadata API, landing page, or
+    both) so that the R1.3 result is consistent with I1 when the profile
+    is configured to check the landing page.
+    """
     accepted = [f.lower() for f in profile.accepted_formats]
     standard = profile.community_standard
-    matched = [f for f in formats if any(a in f or f in a for a in accepted)]
+
+    # Collect formats using the same strategy as check_i1
+    formats_found: list = []
+
+    if profile.i1_check_source in ("metadata", "both"):
+        meta_formats = [f.lower() for f in metadata.core.formats]
+        formats_found.extend(meta_formats)
+
+    if profile.i1_check_source in ("landing_page", "both"):
+        url = metadata.core.access_url
+        if url:
+            lp_formats, _ = fetch_landing_page_formats(url)
+            for f in lp_formats:
+                if f not in formats_found:
+                    formats_found.append(f)
+
+    matched = [
+        f for f in formats_found
+        if any(a in f or f in a for a in accepted)
+    ]
 
     if matched:
         return MetricResult(
@@ -952,15 +1481,15 @@ def check_r1_3(metadata: NormalizedMetadata,
                 + (f" ({standard})" if standard else ""),
             evidence=f"Standard format detected: {', '.join(matched)}"
         )
-    if formats:
+    if formats_found:
         return MetricResult(
             metric_id="R1.3",
             principle="R",
             priority="essential",
             status="fail",
             description="Data format does not match community standards",
-            evidence=f"Current format: {', '.join(formats)}",
-            recommendation=f"Format '{', '.join(formats)}' not accepted. "
+            evidence=f"Current format: {', '.join(formats_found)}",
+            recommendation=f"Format '{', '.join(formats_found)}' not accepted. "
                 f"This profile requires: {', '.join(profile.accepted_formats)}"
                 + (f" ({standard} standard)" if standard else "")
         )
@@ -1012,13 +1541,9 @@ def calculate_score(results: list, principle: str) -> float:
     return round((earned / total_weight) * 100, 1)
 
 
-def run_assessment(
-    metadata: NormalizedMetadata,
-    profile_name: str = "generic",
-    vocab_fairness: dict = None
-) -> AssessmentReport:
+def run_assessment(metadata: NormalizedMetadata,
+                   profile_name: str = "generic") -> AssessmentReport:
     profile = load_profile(profile_name)
-    vocab_fairness = vocab_fairness or {}
 
     results = [
         check_f1(metadata, profile),
@@ -1030,14 +1555,14 @@ def run_assessment(
         check_a1_2(metadata, profile),
         check_a2(metadata, profile),
         check_i1(metadata, profile),
-        check_i2(metadata, profile, vocab_fairness=vocab_fairness),  # pass here
+        check_i2(metadata, profile),
         check_i3(metadata, profile),
         check_r1(metadata, profile),
         check_r1_1(metadata, profile),
         check_r1_2(metadata, profile),
         check_r1_3(metadata, profile),
     ]
-    
+
     f_score = calculate_score(results, "F")
     a_score = calculate_score(results, "A")
     i_score = calculate_score(results, "I")
