@@ -206,9 +206,7 @@
         </div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Require DCAT / schema.org property signatures in metadata
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style)</span>
-                </label>
+                <label>Require DCAT / schema.org property signatures in metadata</label>
                 <input type="checkbox" id="require-dcat-properties" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
@@ -228,9 +226,7 @@
         <div class="fixed-check">🔒 Metadata accessible via HTTP/HTTPS (always checked)</div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Require explicit access level / access rights declaration in metadata
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI FsF-A1-01M style)</span>
-                </label>
+                <label>Require explicit access level / access rights declaration in metadata</label>
                 <input type="checkbox" id="check-access-level" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
@@ -288,15 +284,13 @@
             <div class="hint">Where ProFAIR looks for the dataset's file format.</div>
             <select id="i1-check-source" style="background:white">
                 <option value="metadata">Metadata — read formats from the API response (default)</option>
-                <option value="landing_page">Landing page — follow DOI, inspect Content-Type &amp; HTML (F-UJI / FAIR-Checker style)</option>
+                <option value="landing_page">Landing page — follow DOI, inspect Content-Type &amp; HTML</option>
                 <option value="both">Both — try metadata first, fall back to landing page</option>
             </select>
         </div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Pass on any RDF serialisation via content negotiation
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style)</span>
-                </label>
+                <label>Pass on any RDF serialisation via content negotiation</label>
                 <input type="checkbox" id="check-rdf-triples" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
@@ -406,9 +400,7 @@
         </div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Detect vocabularies by registered namespace URI
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI FsF-I2-01M style)</span>
-                </label>
+                <label>Detect vocabularies by registered namespace URI</label>
                 <input type="checkbox" id="i2-namespace-check" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
@@ -433,11 +425,11 @@
         <div class="configurable-block">
             <label>
                 Minimum distinct URL authorities in metadata
-                <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style — 0 = disabled)</span>
+                <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(0 = disabled)</span>
             </label>
             <div class="hint">
                 Counts unique hostnames across all URL-valued fields in metadata.
-                Set to 0 to disable. FAIR-Checker default is 3.
+                Set to 0 to disable.
             </div>
             <input type="number" id="min-url-authorities" min="0" max="20" value="0"
                 style="background:white;width:80px">
@@ -465,9 +457,7 @@
         </div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Validate license against SPDX recognised identifiers
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI style)</span>
-                </label>
+                <label>Validate license against SPDX recognised identifiers</label>
                 <input type="checkbox" id="r1-1-spdx-check" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
@@ -477,9 +467,7 @@
         </div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Require license value to be a URI
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(FAIR-Checker style)</span>
-                </label>
+                <label>Require license value to be a URI</label>
                 <input type="checkbox" id="r1-1-require-license-uri" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
@@ -501,9 +489,7 @@
         </div>
         <div class="configurable-block">
             <div class="toggle-row">
-                <label>Require formal PROV-O or PAV ontology URI in metadata
-                    <span style="font-size:0.72rem;color:#888;font-weight:normal;margin-left:4px">(F-UJI FsF-R1.2-01M-2 style)</span>
-                </label>
+                <label>Require formal PROV-O or PAV ontology URI in metadata</label>
                 <input type="checkbox" id="r1-2-require-prov-ontology" style="width:auto">
             </div>
             <div class="hint" style="margin-top:0.35rem">
