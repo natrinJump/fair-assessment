@@ -551,17 +551,8 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 access_found = f"{field}: {val}"
                 break
 
-        # Fall back: infer open access from a known-open license value
-        if not access_found and metadata.core.license:
-            lic = metadata.core.license.lower()
-            open_terms = ["cc0", "cc-by", "cc by", "public domain",
-                          "open access", "creativecommons.org"]
-            if any(t in lic for t in open_terms):
-                access_found = (
-                    f"Inferred open access from license: "
-                    f"{metadata.core.license}"
-                )
-
+        # F-UJI strict mode: NO license inference — the field must be
+        # explicitly present in metadata (FsF-A1-01M-1 test).
         if url_ok:
             if access_found:
                 return MetricResult(
@@ -575,21 +566,21 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                     ),
                     evidence=f"Access URL: {url} | {access_found}"
                 )
+            # No explicit access_level field → FAIL (matches F-UJI 0/1 score)
             return MetricResult(
                 metric_id="A1",
                 principle="A",
                 priority="essential",
-                status="partial",
+                status="fail",
                 description=(
                     "Metadata is accessible via HTTP/HTTPS but "
-                    "access level/conditions are not declared in metadata"
+                    "no explicit access level or access rights field found"
                 ),
-                evidence=f"Access URL: {url} | No access_level field found",
+                evidence="access_level / access_rights field is absent or null",
                 recommendation=(
-                    "Add access level or access rights information to "
-                    "metadata (e.g. access_level: open, access_rights: "
-                    "unrestricted). F-UJI requires this field to be "
-                    "explicitly present."
+                    "Add an explicit access_level or access_rights field to "
+                    "metadata (e.g. access_level: open). "
+                    "F-UJI (FsF-A1-01M-1) requires this field to be present."
                 )
             )
         return MetricResult(
