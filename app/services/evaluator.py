@@ -300,8 +300,8 @@ def fetch_landing_page_formats(url: str) -> tuple:
                "type='application/ld+json'" in html:
                 formats.append("json-ld")
                 source_note = (
-                    f"Embedded JSON-LD (<script type='application/ld+json'>) "
-                    f"found in HTML page ({resp.url})"
+                    f"Embedded JSON-LD (application/ld+json script block) "
+                    f"found in HTML landing page ({resp.url})"
                 )
                 return formats, source_note
 
