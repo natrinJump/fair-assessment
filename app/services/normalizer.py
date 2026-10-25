@@ -257,6 +257,12 @@ def normalize_datacite(raw: dict, doi: str,
         custom["resource_type"] = resource_type.lower()
         custom["object_type"]   = resource_type.lower()
 
+    # FsF-R1-01M-2: Extract file size info from DataCite "sizes" field.
+    # F-UJI passes this test when either file type OR file size is present.
+    sizes = attrs.get("sizes", [])
+    if sizes:
+        custom["file_size"] = str(sizes[0])
+
     # Extract vocabulary indicators from DataCite subject schemes
     subjects = attrs.get("subjects", [])
     vocab_indicators = extract_vocab_indicators(subjects)
@@ -296,6 +302,23 @@ def normalize_datacite(raw: dict, doi: str,
                 jld_type = str(jld_type).split(":")[-1].lower()
                 custom["resource_type"] = jld_type
                 custom["object_type"]   = jld_type
+
+        # FsF-R1-01M-2 fallback: extract file format/size from JSON-LD
+        # distribution block (schema:DataDownload / schema:distribution).
+        # F-UJI accepts file size OR file type to pass this test.
+        dist = jsonld.get("distribution") or jsonld.get("contentUrl")
+        if dist:
+            if isinstance(dist, list) and dist:
+                dist = dist[0]
+            if isinstance(dist, dict):
+                enc_fmt = (dist.get("encodingFormat")
+                           or dist.get("fileFormat")
+                           or dist.get("fileExtension"))
+                if enc_fmt and not formats:
+                    formats = [str(enc_fmt)]
+                content_size = dist.get("contentSize")
+                if content_size and "file_size" not in custom:
+                    custom["file_size"] = str(content_size)
 
     core = CoreMetadata(
         identifier=identifier,

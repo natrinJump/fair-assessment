@@ -1272,27 +1272,41 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 "(e.g. resourceTypeGeneral: Dataset)"
             )
 
-    # ── FsF-R1-01M-2 (optional): File format / type info check ────
+    # ── FsF-R1-01M-2 (optional): File format / type / size info check ──
+    # F-UJI passes this test when EITHER file type OR file size is present.
     file_type_ok = True
     file_type_evidence = ""
     if profile.r1_check_file_type_info:
         fmt_list = list(core.formats or [])
+        size_val = None
+
         if not fmt_list:
-            # Fallback: check custom fields for format info
+            # Check custom fields for format / MIME type
             for ff in ["format", "encodingFormat", "mediaType",
                        "file_format", "fileFormat"]:
                 v = metadata.custom.get(ff) or metadata.custom.get(ff.lower())
                 if v:
                     fmt_list = [str(v)]
                     break
-        if fmt_list:
-            file_type_evidence = (
-                f"File format(s): {', '.join(fmt_list[:5])}"
-            )
+
+        # Also look for file size — F-UJI accepts size alone (FsF-R1-01M-2)
+        for sf in ["file_size", "fileSize", "contentSize", "size", "sizes"]:
+            sv = metadata.custom.get(sf) or metadata.custom.get(sf.lower())
+            if sv:
+                size_val = str(sv)
+                break
+
+        if fmt_list or size_val:
+            parts = []
+            if fmt_list:
+                parts.append(f"format: {', '.join(fmt_list[:5])}")
+            if size_val:
+                parts.append(f"size: {size_val}")
+            file_type_evidence = "File info — " + " | ".join(parts)
         else:
             file_type_ok = False
             file_type_evidence = (
-                "No file format or type information found in metadata"
+                "No file format, MIME type, or file size information found in metadata"
             )
 
     # ── Determine final status ────────────────────────────────────
