@@ -288,9 +288,44 @@ def fetch_landing_page_formats(url: str) -> tuple:
             formats.append(CONTENT_TYPE_MAP[ct])
             return formats, source_note
 
-        # HTML response — scan body for download-link extensions
+        # HTML response — check for embedded semantic markup first,
+        # then fall back to download-link extension scan.
         if "text/html" in ct:
-            html = resp.text.lower()
+            body = resp.text
+            html  = body.lower()
+
+            semantic_formats: list = []
+
+            # JSON-LD: <script type="application/ld+json"> (used by Zenodo,
+            # DataCite, most schema.org repositories).
+            if ('type="application/ld+json"' in html or
+                    "type='application/ld+json'" in html):
+                semantic_formats.append("json-ld")
+
+            # RDFa: vocab/typeof/property attributes in HTML markup.
+            # Zenodo (InvenioRDM) embeds RDFa alongside JSON-LD.
+            has_rdfa = (
+                ('vocab="https://schema.org' in html or
+                 'vocab="http://schema.org'  in html or
+                 "vocab='https://schema.org" in html or
+                 "vocab='http://schema.org"  in html or
+                 'typeof="schema:'           in html or
+                 "typeof='schema:"           in html or
+                 'property="schema:'         in html or
+                 "property='schema:"         in html)
+            )
+            if has_rdfa:
+                semantic_formats.append("rdfa")
+
+            if semantic_formats:
+                found_names = ", ".join(semantic_formats)
+                source_note = (
+                    f"Embedded semantic markup ({found_names}) "
+                    f"found in HTML landing page ({resp.url})"
+                )
+                return semantic_formats, source_note
+
+            # Fall back to scanning body for download-link file extensions
             for ext, fmt in HTML_EXTENSION_MAP.items():
                 if ext in html and fmt not in formats:
                     formats.append(fmt)
@@ -606,7 +641,6 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 recommendation=(
                     "Add an explicit access_level or access_rights field to "
                     "metadata (e.g. access_level: open). "
-                    "F-UJI (FsF-A1-01M-1) requires this field to be present."
                 )
             )
         return MetricResult(
@@ -1518,43 +1552,66 @@ def check_r1_3(metadata: NormalizedMetadata,
 
     # ── Standards mode ────────────────────────────────────────────
     if profile.required_community_standards:
+        # Build text corpus from API metadata
         raw_text = json.dumps(metadata.custom).lower()
-        # Also include core fields
         raw_text += json.dumps({
             "title": metadata.core.title,
             "description": metadata.core.description,
             "formats": metadata.core.formats,
         }).lower()
 
-        found = []
-        not_found = []
+        # First pass: scan API metadata
+        found: list = []
+        not_found: list = []
         for std_name in profile.required_community_standards:
             key = std_name.lower().strip()
             patterns = COMMUNITY_STANDARDS_PATTERNS.get(key, [key])
-            matched = any(p.lower() in raw_text for p in patterns)
-            if matched:
+            if any(p.lower() in raw_text for p in patterns):
                 found.append(std_name)
             else:
                 not_found.append(std_name)
 
-        if not not_found:
+        # Second pass: scan landing-page HTML for standards not yet found in
+        # API metadata.  Landing pages typically embed schema.org JSON-LD
+        # (@context: "https://schema.org") and RDFa that API responses omit.
+        if not_found:
+            url = metadata.core.access_url
+            if url:
+                try:
+                    import requests as _req
+                    lp = _req.get(
+                        url,
+                        headers={"User-Agent": "ProFAIR/1.0"},
+                        timeout=8,
+                    )
+                    if "text/html" in lp.headers.get("content-type", "").lower():
+                        lp_text = lp.text.lower()
+                        still_missing: list = []
+                        for std_name in not_found:
+                            key = std_name.lower().strip()
+                            patterns = COMMUNITY_STANDARDS_PATTERNS.get(key, [key])
+                            if any(p.lower() in lp_text for p in patterns):
+                                found.append(std_name)
+                            else:
+                                still_missing.append(std_name)
+                        not_found = still_missing
+                except Exception:
+                    pass  # network error — rely on API-metadata scan only
+
+        # "any found → pass" matches both F-UJI (FsF-R1.3-01M-3: "any of
+        # potential values") and FAIR-Checker (pass if schema.org detected).
+        if found:
+            extra = (
+                f" | Not detected: {', '.join(not_found)}"
+                if not_found else ""
+            )
             return MetricResult(
                 metric_id="R1.3",
                 principle="R",
                 priority="essential",
                 status="pass",
-                description="All required community standards detected in metadata",
-                evidence=f"Found: {', '.join(found)}"
-            )
-        if found:
-            return MetricResult(
-                metric_id="R1.3",
-                principle="R",
-                priority="essential",
-                status="partial",
-                description="Some required community standards detected in metadata",
-                evidence=f"Found: {', '.join(found)} | Missing: {', '.join(not_found)}",
-                recommendation=f"Add metadata conforming to: {', '.join(not_found)}"
+                description="Community metadata standard(s) detected in metadata",
+                evidence=f"Found: {', '.join(found)}{extra}"
             )
         return MetricResult(
             metric_id="R1.3",

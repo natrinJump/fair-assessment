@@ -25,5 +25,5 @@
     "r1_2_require_prov_ontology": true,
     "community_standard": null,
     "r1_check_measured_variables": true,
-    "required_community_standards": []
+    "required_community_standards": ["schema.org", "datacite", "dublin core"]
 }
