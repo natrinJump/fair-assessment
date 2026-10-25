@@ -211,6 +211,7 @@ def normalize_datacite(raw: dict, doi: str,
     license_url = rights[0].get("rightsUri") if rights else None
 
     creators = attrs.get("creators", [])
+
     creator = creators[0].get("name") if creators else None
 
     formats = list(set(attrs.get("formats", [])))[:5]
@@ -227,6 +228,25 @@ def normalize_datacite(raw: dict, doi: str,
     custom = extract_custom_fields(attrs, custom_fields or [])
     if related:
         custom["_related_identifiers"] = str(related)[:500]
+
+    # Always extract access rights so check_a1() can find them.
+    # DataCite carries access info in rightsList (e.g. "Open Access",
+    # "info:eu-repo/semantics/openAccess") and sometimes in a top-level
+    # "access" attribute.  Map whatever is found to the canonical keys.
+    _access_terms = ["open", "public", "restricted", "closed", "embargoed",
+                     "access", "openaccess", "eu-repo"]
+    for r in rights:
+        r_text = (r.get("rights") or r.get("rightsIdentifier") or
+                  r.get("rightsUri") or "").lower()
+        if any(t in r_text for t in _access_terms):
+            custom["access_rights"] = r_text
+            custom["access_level"]  = r_text
+            break
+    # Some DataCite-based repos expose a top-level access attribute
+    top_access = attrs.get("access") or attrs.get("accessLevel")
+    if top_access and "access_level" not in custom:
+        custom["access_level"]  = str(top_access)
+        custom["access_rights"] = str(top_access)
 
     # Extract vocabulary indicators from DataCite subject schemes
     subjects = attrs.get("subjects", [])
@@ -288,6 +308,16 @@ def normalize_zenodo(raw: dict, identifier: str,
     custom = {}
     if related:
         custom["_related_identifiers"] = str(related)[:500]
+
+    # Always extract access level / access rights so check_a1() can find them.
+    # Zenodo v1 API uses "access_right" ("open", "restricted", "embargoed", …);
+    # newer Zenodo (InvenioRDM) may expose "access_level" directly.
+    access_right = (metadata.get("access_right")
+                    or metadata.get("access_level")
+                    or data.get("access", {}).get("record"))
+    if access_right:
+        custom["access_level"]  = str(access_right)
+        custom["access_rights"] = str(access_right)
 
     if custom_fields:
         subjects = metadata.get("subjects", [])
