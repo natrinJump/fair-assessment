@@ -11,14 +11,26 @@
     "custom_vocabularies": [],
     "min_vocab_fairness_level": "none",
     "require_related_resources": false,
+
     "i1_check_source": "landing_page",
     "check_rdf_triples": true,
-    "min_url_authorities": 3,
+
     "require_dcat_properties": true,
+    "min_url_authorities": 3,
+
     "accepted_licenses": ["cc-by", "cc0", "cc-by-sa", "mit", "apache"],
+    "required_license": null,
     "r1_1_spdx_check": false,
     "r1_1_require_license_uri": true,
-    "required_license": null,
+
     "required_provenance_fields": ["creator", "provenance_date"],
-    "community_standard": null
+    "r1_2_require_prov_ontology": false,
+
+    "r1_check_measured_variables": false,
+
+    "community_standard": null,
+    "required_community_standards": ["schema.org"],
+
+    "check_access_level": false,
+    "i2_namespace_check": false
 }
