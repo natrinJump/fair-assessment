@@ -79,106 +79,6 @@ def get_resource_uri(value: str):
     """Return known URI for a resource, or None if not known."""
     return KNOWN_RESOURCE_URIS.get(value.lower().strip())
 
-def parse_fip_turtle_to_profile(turtle_text: str, profile_name: str) -> dict:
-    from rdflib import Graph, Namespace
-    FIP   = Namespace("https://w3id.org/fair/fip/terms/")
-    DCTERMS = Namespace("http://purl.org/dc/terms/")
-    RDFS  = Namespace("http://www.w3.org/2000/01/rdf-schema#")
-
-    URI_TO_IDENTIFIER = {
-        "https://doi.org/": "doi",
-        "https://hdl.handle.net/": "handle",
-        "https://n2t.net/": "ark",
-        "https://w3id.org/": "w3id",
-    }
-    URI_TO_VOCAB = {
-        "https://agrovoc.fao.org/browse/agrovoc/en/": "AGROVOC",
-        "https://id.nlm.nih.gov/mesh/": "MeSH",
-        "http://purl.obolibrary.org/obo/envo.owl": "ENVO",
-        "https://ddialliance.org/": "DDI",
-        "https://schema.org/": "schema.org",
-        "http://purl.org/dc/terms/": "Dublin Core",
-        "http://www.w3.org/2004/02/skos/core#": "SKOS",
-        "http://www.w3.org/ns/dcat#": "DCAT",
-    }
-    URI_TO_LICENSE = {
-        "https://creativecommons.org/licenses/by/4.0/": "cc-by",
-        "https://creativecommons.org/publicdomain/zero/1.0/": "cc0",
-        "https://opensource.org/licenses/MIT": "mit",
-        "https://www.apache.org/licenses/LICENSE-2.0": "apache-2.0",
-        "https://www.gnu.org/licenses/gpl-3.0.html": "gpl",
-        "https://opensource.org/licenses/BSD-2-Clause": "bsd",
-    }
-    URI_TO_FORMAT = {
-        "https://www.iana.org/assignments/media-types/text/csv": "csv",
-        "https://www.iana.org/assignments/media-types/application/json": "json",
-        "https://www.iana.org/assignments/media-types/application/ld+json": "json-ld",
-        "https://www.w3.org/TR/turtle/": "turtle",
-        "https://www.w3.org/TR/xml/": "xml",
-        "https://www.w3.org/TR/rdf-syntax-grammar/": "rdf",
-        "https://www.unidata.ucar.edu/software/netcdf/": "netcdf",
-    }
-
-    g = Graph()
-    try:
-        g.parse(data=turtle_text, format="turtle")
-    except Exception as e:
-        raise ValueError(f"Could not parse Turtle: {str(e)}")
-
-    profile = {
-        "name": profile_name,
-        "domain": profile_name.lower().replace(" ", "_"),
-        "accepted_identifiers": [],
-        "required_metadata_fields": ["title", "description", "creator", "license"],
-        "custom_metadata_fields": [],
-        "accepted_formats": [],
-        "required_vocabulary": None,
-        "accepted_licenses": [],
-        "required_provenance_fields": ["creator", "provenance_date"],
-        "community_standard": None,
-        "check_discoverability": True,
-        "require_related_resources": False,
-        "min_vocab_fairness_level": "none",
-        "custom_vocabularies": [],
-        "custom_identifiers": [],
-    }
-
-    for decl in g.subjects(predicate=None, object=FIP["FIP-Declaration"]):
-        principle   = str(g.value(decl, FIP["principle-tag"]) or "")
-        resource_uri = str(g.value(decl, FIP["declares-current-use-of"]) or "")
-        label       = str(g.value(decl, RDFS["label"]) or "")
-        description = str(g.value(decl, DCTERMS["description"]) or "")
-
-        if principle == "F1":
-            mapped = URI_TO_IDENTIFIER.get(resource_uri)
-            val = mapped or label.lower().replace(" identifier", "").strip()
-            if val and val not in profile["accepted_identifiers"]:
-                profile["accepted_identifiers"].append(val)
-
-        elif principle == "I1":
-            mapped = URI_TO_FORMAT.get(resource_uri)
-            val = mapped or label.lower().strip()
-            if val and val not in profile["accepted_formats"]:
-                profile["accepted_formats"].append(val)
-
-        elif principle == "I2":
-            mapped = URI_TO_VOCAB.get(resource_uri)
-            val = mapped or label or description.replace("Required vocabulary: ", "").strip()
-            if val and not profile["required_vocabulary"]:
-                profile["required_vocabulary"] = val
-
-        elif principle == "R1.1":
-            mapped = URI_TO_LICENSE.get(resource_uri)
-            val = mapped or label.lower().strip()
-            if val and val not in profile["accepted_licenses"]:
-                profile["accepted_licenses"].append(val)
-
-        elif principle == "R1.3":
-            val = label or description.replace("Community standard: ", "").strip()
-            if val:
-                profile["community_standard"] = val
-
-    return profile
 
 def generate_turtle(profile: dict) -> str:
     name = profile["name"]
@@ -456,142 +356,6 @@ async def assess_upload(file: UploadFile = File(...), profile: str = "generic"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/profiles/import/fip-url")
-async def import_from_fip_url(data: dict, profile_name: str = "Imported FIP"):
-    """
-    Fetch a FIP Turtle from a URL and create a profile from its declarations.
-    Works with both your own exported FIPs and simplified community FIPs.
-    """
-    import httpx
-    from rdflib import Graph, URIRef, Namespace
-    
-    url = data.get("url")
-    if not url:
-        raise HTTPException(status_code=400, detail="url is required")
-    
-    try:
-        async with httpx.AsyncClient() as client:
-            r = await client.get(url, timeout=10.0,
-                headers={"Accept": "text/turtle, application/rdf+xml, */*"})
-        if r.status_code != 200:
-            raise HTTPException(status_code=400, 
-                detail=f"Could not fetch FIP: HTTP {r.status_code}")
-        turtle_content = r.text
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    
-    return parse_fip_turtle_to_profile(turtle_content, profile_name)
-
-def parse_fip_turtle_to_profile(turtle_text: str, profile_name: str) -> dict:
-    """
-    Parse FIP Turtle and map declarations to profile fields.
-    Works with the Turtle your tool exports and basic community FIPs.
-    """
-    from rdflib import Graph, URIRef, Literal, Namespace
-    
-    FIP = Namespace("https://w3id.org/fair/fip/terms/")
-    DCTERMS = Namespace("http://purl.org/dc/terms/")
-    RDFS = Namespace("http://www.w3.org/2000/01/rdf-schema#")
-    
-    # Reverse lookup: real resource URI → profile field value
-    URI_TO_IDENTIFIER = {
-        "https://doi.org/": "doi",
-        "https://hdl.handle.net/": "handle",
-        "https://n2t.net/": "ark",
-        "https://w3id.org/": "w3id",
-    }
-    URI_TO_VOCAB = {
-        "https://agrovoc.fao.org/browse/agrovoc/en/": "AGROVOC",
-        "https://id.nlm.nih.gov/mesh/": "MeSH",
-        "http://purl.obolibrary.org/obo/envo.owl": "ENVO",
-        "https://ddialliance.org/": "DDI",
-        "https://schema.org/": "schema.org",
-        "http://purl.org/dc/terms/": "Dublin Core",
-        "http://www.w3.org/2004/02/skos/core#": "SKOS",
-        "http://www.w3.org/ns/dcat#": "DCAT",
-    }
-    URI_TO_LICENSE = {
-        "https://creativecommons.org/licenses/by/4.0/": "cc-by",
-        "https://creativecommons.org/publicdomain/zero/1.0/": "cc0",
-        "https://opensource.org/licenses/MIT": "mit",
-        "https://www.apache.org/licenses/LICENSE-2.0": "apache-2.0",
-    }
-    URI_TO_FORMAT = {
-        "https://www.iana.org/assignments/media-types/text/csv": "csv",
-        "https://www.iana.org/assignments/media-types/application/json": "json",
-        "https://www.iana.org/assignments/media-types/application/ld+json": "json-ld",
-        "https://www.w3.org/TR/turtle/": "turtle",
-        "https://www.w3.org/TR/xml/": "xml",
-        "https://www.w3.org/TR/rdf-syntax-grammar/": "rdf",
-        "https://www.unidata.ucar.edu/software/netcdf/": "netcdf",
-    }
-    
-    g = Graph()
-    try:
-        g.parse(data=turtle_text, format="turtle")
-    except Exception as e:
-        raise ValueError(f"Could not parse Turtle: {str(e)}")
-    
-    profile = {
-        "name": profile_name,
-        "domain": profile_name.lower().replace(" ", "_"),
-        "accepted_identifiers": [],
-        "required_metadata_fields": ["title", "description", "creator", "license"],
-        "custom_metadata_fields": [],
-        "accepted_formats": [],
-        "required_vocabulary": None,
-        "accepted_licenses": [],
-        "required_provenance_fields": ["creator", "provenance_date"],
-        "community_standard": None,
-        "check_discoverability": True,
-        "require_related_resources": False,
-        "min_vocab_fairness_level": "none",
-        "custom_vocabularies": [],
-        "custom_identifiers": [],
-    }
-    
-    # Query for all FIP-Declaration resources
-    for decl in g.subjects(predicate=None, object=FIP["FIP-Declaration"]):
-        principle = str(g.value(decl, FIP["principle-tag"]) or "")
-        resource_uri = str(g.value(decl, FIP["declares-current-use-of"]) or "")
-        label = str(g.value(decl, RDFS["label"]) or "")
-        description = str(g.value(decl, DCTERMS["description"]) or "")
-        
-        if principle == "F1":
-            mapped = URI_TO_IDENTIFIER.get(resource_uri)
-            if mapped and mapped not in profile["accepted_identifiers"]:
-                profile["accepted_identifiers"].append(mapped)
-            elif label and label.lower().rstrip(" identifier") not in profile["accepted_identifiers"]:
-                profile["accepted_identifiers"].append(
-                    label.lower().replace(" identifier", "").strip()
-                )
-        
-        elif principle == "I1":
-            mapped = URI_TO_FORMAT.get(resource_uri)
-            if mapped and mapped not in profile["accepted_formats"]:
-                profile["accepted_formats"].append(mapped)
-            elif label and label not in profile["accepted_formats"]:
-                profile["accepted_formats"].append(label.lower().strip())
-        
-        elif principle == "I2":
-            mapped = URI_TO_VOCAB.get(resource_uri)
-            vocab_name = mapped or label or description.replace("Required vocabulary: ", "").strip()
-            if vocab_name and not profile["required_vocabulary"]:
-                profile["required_vocabulary"] = vocab_name
-        
-        elif principle == "R1.1":
-            mapped = URI_TO_LICENSE.get(resource_uri)
-            if mapped and mapped not in profile["accepted_licenses"]:
-                profile["accepted_licenses"].append(mapped)
-            elif label and label not in profile["accepted_licenses"]:
-                profile["accepted_licenses"].append(label.lower().strip())
-        
-        elif principle == "R1.3":
-            std = label or description.replace("Community standard: ", "").strip()
-            if std:
-                profile["community_standard"] = std
-    
-    return profile
 
 @app.get("/profiles")
 def list_profiles():
@@ -647,14 +411,13 @@ def restore_profile(name: str):
             detail=f"No original file found for domain: {domain}")
     with open(path, "r") as f:
         original = json.load(f)
-    updated = update_profile(name, {
-    "accepted_identifiers": original["accepted_identifiers"],
-    "required_metadata_fields": original["required_metadata_fields"],
-    "accepted_formats": original["accepted_formats"],
-    "required_vocabulary": original.get("required_vocabulary"),
-    "required_license": original.get("required_license"),
-    "min_vocab_fairness_level": original.get("min_vocab_fairness_level", "none"),  
-    })
+    # Pass every field from the source JSON so ALL profile settings —
+    # including flags added in later versions — are fully restored.
+    # "name" and "domain" are intentionally excluded to avoid renaming
+    # a profile that the user may have customised.
+    restore_data = {k: v for k, v in original.items()
+                    if k not in ("name", "domain", "id")}
+    updated = update_profile(name, restore_data)
     return updated
 
 
@@ -681,25 +444,6 @@ def remove_profile(name: str):
     if not success:
         raise HTTPException(status_code=404, detail="Profile not found")
     return {"message": f"Profile '{name}' deleted"}
-
-@app.post("/profiles/import/fip-url")
-async def import_from_fip_url(data: dict, profile_name: str = "Imported FIP"):
-    import httpx as _httpx
-    url = data.get("url")
-    if not url:
-        raise HTTPException(status_code=400, detail="url is required")
-    try:
-        async with _httpx.AsyncClient() as client:
-            r = await client.get(url, timeout=10.0,
-                headers={"Accept": "text/turtle, application/rdf+xml, */*"})
-        if r.status_code != 200:
-            raise HTTPException(status_code=400,
-                detail=f"Could not fetch FIP: HTTP {r.status_code}")
-        return parse_fip_turtle_to_profile(r.text, profile_name)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/history")
@@ -729,4 +473,3 @@ def get_doi_history(doi: str):
     if not history:
         raise HTTPException(status_code=404, detail="No history found for this DOI")
     return history
-
