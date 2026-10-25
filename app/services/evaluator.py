@@ -288,24 +288,9 @@ def fetch_landing_page_formats(url: str) -> tuple:
             formats.append(CONTENT_TYPE_MAP[ct])
             return formats, source_note
 
-        # HTML response — check for embedded JSON-LD first, then link scan
+        # HTML response — scan body for download-link extensions
         if "text/html" in ct:
-            body = resp.text
-            html  = body.lower()
-
-            # FAIR-Checker detection: schema.org JSON-LD embedded in <script>
-            # tags is how most data repositories (Zenodo, DataCite, etc.)
-            # expose linked data without content negotiation.
-            if 'type="application/ld+json"' in html or \
-               "type='application/ld+json'" in html:
-                formats.append("json-ld")
-                source_note = (
-                    f"Embedded JSON-LD (application/ld+json script block) "
-                    f"found in HTML landing page ({resp.url})"
-                )
-                return formats, source_note
-
-            # Fall back to scanning body for download-link file extensions
+            html = resp.text.lower()
             for ext, fmt in HTML_EXTENSION_MAP.items():
                 if ext in html and fmt not in formats:
                     formats.append(fmt)
