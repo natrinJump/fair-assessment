@@ -248,6 +248,15 @@ def normalize_datacite(raw: dict, doi: str,
         custom["access_level"]  = str(top_access)
         custom["access_rights"] = str(top_access)
 
+    # FsF-R1-01M-1: Extract resource/object type so check_r1() can verify it.
+    # DataCite stores this in types.resourceTypeGeneral (e.g. "Dataset").
+    types = attrs.get("types", {})
+    resource_type = (types.get("resourceTypeGeneral")
+                     or types.get("resourceType"))
+    if resource_type:
+        custom["resource_type"] = resource_type.lower()
+        custom["object_type"]   = resource_type.lower()
+
     # Extract vocabulary indicators from DataCite subject schemes
     subjects = attrs.get("subjects", [])
     vocab_indicators = extract_vocab_indicators(subjects)
@@ -264,6 +273,29 @@ def normalize_datacite(raw: dict, doi: str,
         # use the JSON-LD format
         if not formats and jsonld_extras.get("_jsonld_format"):
             formats = [jsonld_extras["_jsonld_format"]]
+
+        # Fallback: extract access rights from JSON-LD.
+        # Zenodo's schema.org representation exposes conditionsOfAccess /
+        # accessRights which the DataCite rightsList sometimes omits (it
+        # only lists the CC licence, no separate "Open Access" entry).
+        if "access_level" not in custom:
+            for _key in ["conditionsOfAccess", "accessRights", "access"]:
+                _val = jsonld.get(_key)
+                if _val and isinstance(_val, str):
+                    custom["access_level"]  = _val.lower()
+                    custom["access_rights"] = _val.lower()
+                    break
+
+        # FsF-R1-01M-1 fallback: resource type from JSON-LD @type
+        if "resource_type" not in custom:
+            jld_type = jsonld.get("@type")
+            if jld_type:
+                if isinstance(jld_type, list):
+                    jld_type = jld_type[0]
+                # strip schema.org prefix → e.g. "schema:Dataset" → "dataset"
+                jld_type = str(jld_type).split(":")[-1].lower()
+                custom["resource_type"] = jld_type
+                custom["object_type"]   = jld_type
 
     core = CoreMetadata(
         identifier=identifier,

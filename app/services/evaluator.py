@@ -641,6 +641,7 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 recommendation=(
                     "Add an explicit access_level or access_rights field to "
                     "metadata (e.g. access_level: open). "
+                    "F-UJI (FsF-A1-01M-1) requires this field to be present."
                 )
             )
         return MetricResult(
@@ -1206,7 +1207,7 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         else:
             missing.append(field)
 
-    # ── Measured variables check ──────────────────────────────────
+    # ── FsF-R1-01M-3 (optional): Measured variables check ─────────
     measured_ok = True
     measured_evidence = ""
     if profile.r1_check_measured_variables:
@@ -1221,49 +1222,121 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                             or metadata.custom.get(vf)
                             or metadata.custom.get(vf.lower()))
             if measured_val:
-                measured_evidence = f"Measured variables found: {vf}"
+                measured_evidence = f"Measured variables: {vf}"
                 break
         if not measured_val:
             measured_ok = False
             measured_evidence = (
-                "No measured variables or observation types found "
-                "(variableMeasured / variables / hasPart)"
+                "No measured variables / observation types found"
             )
 
+    # ── FsF-R1-01M-1 (optional): Resource type check ──────────────
+    resource_type_ok = True
+    resource_type_evidence = ""
+    if profile.r1_check_resource_type:
+        rt_fields = [
+            "resource_type", "object_type", "resourceType",
+            "resourceTypeGeneral", "type",
+        ]
+        rt_val = None
+        for rf in rt_fields:
+            rt_val = (getattr(core, rf, None)
+                      or metadata.custom.get(rf)
+                      or metadata.custom.get(rf.lower()))
+            if rt_val:
+                resource_type_evidence = f"Resource type: {rt_val}"
+                break
+        if not rt_val:
+            resource_type_ok = False
+            resource_type_evidence = (
+                "No resource / object type declared in metadata "
+                "(e.g. resourceTypeGeneral: Dataset)"
+            )
+
+    # ── FsF-R1-01M-2 (optional): File format / type info check ────
+    file_type_ok = True
+    file_type_evidence = ""
+    if profile.r1_check_file_type_info:
+        fmt_list = list(core.formats or [])
+        if not fmt_list:
+            # Fallback: check custom fields for format info
+            for ff in ["format", "encodingFormat", "mediaType",
+                       "file_format", "fileFormat"]:
+                v = metadata.custom.get(ff) or metadata.custom.get(ff.lower())
+                if v:
+                    fmt_list = [str(v)]
+                    break
+        if fmt_list:
+            file_type_evidence = (
+                f"File format(s): {', '.join(fmt_list[:5])}"
+            )
+        else:
+            file_type_ok = False
+            file_type_evidence = (
+                "No file format or type information found in metadata"
+            )
+
+    # ── Determine final status ────────────────────────────────────
     base_status = "pass" if not missing else ("partial" if present else "fail")
 
-    if base_status == "pass" and not measured_ok:
-        return MetricResult(
-            metric_id="R1",
-            principle="R",
-            priority="essential",
-            status="partial",
-            description="Metadata fields are complete but measured variables/observation types are not specified",
-            evidence=f"Fields present: {', '.join(present)} | {measured_evidence}",
-            recommendation="Add variableMeasured, variables, or observation_type to metadata"
-        )
+    # Collect sub-check failures to downgrade status and show evidence
+    sub_fails = []
+    ev_parts = []
 
     if base_status == "pass":
-        ev = f"All reuse fields present: {', '.join(present)}"
-        if measured_evidence:
-            ev += f" | {measured_evidence}"
+        ev_parts.append(f"Fields: {', '.join(present)}")
+    elif present:
+        ev_parts.append(f"Present: {', '.join(present)} | Missing: {', '.join(missing)}")
+    else:
+        ev_parts.append(f"Missing: {', '.join(missing)}")
+
+    if profile.r1_check_resource_type:
+        ev_parts.append(resource_type_evidence)
+        if not resource_type_ok:
+            sub_fails.append("resource type not declared")
+    if profile.r1_check_file_type_info:
+        ev_parts.append(file_type_evidence)
+        if not file_type_ok:
+            sub_fails.append("file format info absent")
+    if profile.r1_check_measured_variables:
+        ev_parts.append(measured_evidence)
+        if not measured_ok:
+            sub_fails.append("measured variables missing")
+
+    if sub_fails and base_status == "pass":
+        base_status = "partial"
+
+    combined_ev = " | ".join(e for e in ev_parts if e)
+
+    if base_status == "pass":
         return MetricResult(
             metric_id="R1",
             principle="R",
             priority="essential",
             status="pass",
             description="Metadata contains sufficient information for reuse",
-            evidence=ev
+            evidence=combined_ev
         )
     if base_status == "partial":
+        desc_parts = []
+        if missing:
+            desc_parts.append(f"missing fields: {', '.join(missing)}")
+        desc_parts.extend(sub_fails)
         return MetricResult(
             metric_id="R1",
             principle="R",
             priority="essential",
             status="partial",
-            description="Metadata missing some fields needed for reuse",
-            evidence=f"Present: {', '.join(present)} | Missing: {', '.join(missing)}",
-            recommendation=f"Add missing fields: {', '.join(missing)}"
+            description="Metadata partially satisfies reuse requirements: "
+                        + "; ".join(desc_parts),
+            evidence=combined_ev,
+            recommendation=(
+                (f"Add missing fields: {', '.join(missing)}. " if missing else "")
+                + (f"Declare resource type (e.g. resourceTypeGeneral: Dataset). "
+                   if not resource_type_ok else "")
+                + ("Add file format / size information to metadata. "
+                   if not file_type_ok else "")
+            ).strip()
         )
     return MetricResult(
         metric_id="R1",
@@ -1271,7 +1344,7 @@ def check_r1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
         priority="essential",
         status="fail",
         description="Metadata missing fields needed for reuse",
-        evidence=f"Missing: {', '.join(missing)}",
+        evidence=combined_ev,
         recommendation=f"Add required fields: {', '.join(all_fields)}"
     )
 

@@ -43,6 +43,10 @@ class ProfileDB(SQLModel, table=True):
     r1_2_require_prov_ontology: bool = False
     # R1 — require measured variables / observation types in metadata
     r1_check_measured_variables: bool = False
+    # R1 — FsF-R1-01M-1: resource type declared in metadata
+    r1_check_resource_type: bool = False
+    # R1 — FsF-R1-01M-2: file format / type info in metadata
+    r1_check_file_type_info: bool = False
     # R1.3 — list of required community standards (JSON array of strings)
     required_community_standards: str = "[]"
 

@@ -24,6 +24,8 @@
     "required_provenance_fields": ["creator", "provenance_date", "description"],
     "r1_2_require_prov_ontology": true,
     "community_standard": null,
-    "r1_check_measured_variables": true,
+    "r1_check_measured_variables": false,
+    "r1_check_resource_type": true,
+    "r1_check_file_type_info": true,
     "required_community_standards": ["schema.org", "datacite", "dublin core"]
 }

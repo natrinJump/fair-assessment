@@ -36,6 +36,8 @@ def _db_to_dict(p: ProfileDB) -> dict:
         "r1_1_require_license_uri": p.r1_1_require_license_uri,
         "r1_2_require_prov_ontology": p.r1_2_require_prov_ontology,
         "r1_check_measured_variables": p.r1_check_measured_variables,
+        "r1_check_resource_type": p.r1_check_resource_type,
+        "r1_check_file_type_info": p.r1_check_file_type_info,
         "required_community_standards": json.loads(p.required_community_standards),
     }
 
@@ -74,6 +76,8 @@ def _dict_to_db(data: dict) -> ProfileDB:
         r1_1_require_license_uri=data.get("r1_1_require_license_uri", False),
         r1_2_require_prov_ontology=data.get("r1_2_require_prov_ontology", False),
         r1_check_measured_variables=data.get("r1_check_measured_variables", False),
+        r1_check_resource_type=data.get("r1_check_resource_type", False),
+        r1_check_file_type_info=data.get("r1_check_file_type_info", False),
         required_community_standards=json.dumps(
             data.get("required_community_standards", [])),
     )
@@ -175,6 +179,8 @@ def update_profile(name: str, data: dict) -> dict:
             "r1_1_require_license_uri",
             "r1_2_require_prov_ontology",
             "r1_check_measured_variables",
+            "r1_check_resource_type",
+            "r1_check_file_type_info",
         ]:
             if field in data:
                 setattr(p, field, data[field])

@@ -91,6 +91,16 @@ class Profile(BaseModel):
     # hasPart fields; missing them downgrades the result to partial.
     r1_check_measured_variables: bool = False
 
+    # R1 — FsF-R1-01M-1: require resource/object type in metadata
+    # When True: checks that resource_type / object_type / @type is declared
+    # (e.g. "Dataset"). Missing → partial.
+    r1_check_resource_type: bool = False
+
+    # R1 — FsF-R1-01M-2: require file format / type information in metadata
+    # When True: checks that at least one file format or MIME type is listed
+    # in metadata.core.formats or a known format field. Missing → partial.
+    r1_check_file_type_info: bool = False
+
     # R1.3 — community standards
     # Single legacy string (kept for backward compat)
     community_standard: Optional[str] = None
