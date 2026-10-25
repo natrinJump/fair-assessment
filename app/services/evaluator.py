@@ -612,8 +612,27 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 access_found = f"{field}: {val}"
                 break
 
-        # F-UJI strict mode: NO license inference — the field must be
-        # explicitly present in metadata (FsF-A1-01M-1 test).
+        # Broad fallback: scan every custom field value for known access terms.
+        # This catches cases where the value is present under an unexpected key
+        # (e.g. F-UJI detects "public" from Zenodo's schema.org conditionsOfAccess
+        # which may land in a custom field with a different name).
+        if not access_found:
+            _access_terms = {
+                "open", "public", "restricted", "closed", "embargoed",
+                "open access", "openaccess",
+                "info:eu-repo/semantics/openaccess",
+                "info:eu-repo/semantics/restrictedaccess",
+                "info:eu-repo/semantics/closedaccess",
+            }
+            for k, v in metadata.custom.items():
+                if not isinstance(v, str) or not v:
+                    continue
+                vl = v.lower().strip()
+                if vl in _access_terms or any(t in vl for t in _access_terms):
+                    access_found = f"{k}: {v}"
+                    break
+
+        # F-UJI: access level info must be present in metadata (FsF-A1-01M-1).
         if url_ok:
             if access_found:
                 return MetricResult(
