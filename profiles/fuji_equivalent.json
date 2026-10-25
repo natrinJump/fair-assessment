@@ -26,6 +26,6 @@
     "community_standard": null,
     "r1_check_measured_variables": false,
     "r1_check_resource_type": true,
-    "r1_check_file_type_info": true,
+    "r1_check_file_type_info": false,
     "required_community_standards": ["schema.org", "datacite", "dublin core"]
 }
