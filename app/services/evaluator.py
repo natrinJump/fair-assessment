@@ -980,7 +980,7 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 metric_id="I2",
                 principle="I",
                 priority="important",
-                status="pass",
+                status="partial",
                 description=(
                     "Metadata uses registered semantic vocabulary "
                     "namespaces"
@@ -1717,6 +1717,17 @@ def check_r1_3(metadata: NormalizedMetadata,
                 f" | Not detected: {', '.join(not_found)}"
                 if not_found else ""
             )
+            # FAIR-Checker equivalent: cap at partial because strong check
+            # (all properties in OLS/BioPortal) can't be confirmed without live API calls
+            if getattr(profile, "r1_3_cap_at_partial", False):
+                return MetricResult(
+                    metric_id="R1.3",
+                    principle="R",
+                    priority="essential",
+                    status="partial",
+                    description="Community standard(s) detected — weak check satisfied (strong check requires OLS/BioPortal validation)",
+                    evidence=f"Found: {', '.join(found)}{extra}"
+                )
             return MetricResult(
                 metric_id="R1.3",
                 principle="R",
@@ -1725,18 +1736,6 @@ def check_r1_3(metadata: NormalizedMetadata,
                 description="Community metadata standard(s) detected in metadata",
                 evidence=f"Found: {', '.join(found)}{extra}"
             )
-        return MetricResult(
-            metric_id="R1.3",
-            principle="R",
-            priority="essential",
-            status="fail",
-            description="No required community standards detected in metadata",
-            evidence=f"Required: {', '.join(profile.required_community_standards)}",
-            recommendation=(
-                "Ensure metadata includes namespace URIs or vocabulary terms "
-                f"for: {', '.join(profile.required_community_standards)}"
-            )
-        )
 
     # ── Format mode (default) ─────────────────────────────────────
     accepted = [f.lower() for f in profile.accepted_formats]

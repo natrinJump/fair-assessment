@@ -68,7 +68,7 @@ class Profile(BaseModel):
 
     # I3 — FAIR-Checker style: require at least N distinct URL authorities
     # in metadata (0 = disabled, 3 = FAIR-Checker default)
-    min_url_authorities: int = 0
+    min_url_authorities: int = 0  
 
     # R1.1 — licenses
     accepted_licenses: list[str] = []
@@ -110,6 +110,7 @@ class Profile(BaseModel):
     # Standard names are matched case-insensitively against a built-in
     # namespace pattern table (Schema.org, DataCite, DDI, Darwin Core, etc.).
     required_community_standards: list[str] = []
+    r1_3_cap_at_partial: bool = False
 
 
 class MetricResult(BaseModel):

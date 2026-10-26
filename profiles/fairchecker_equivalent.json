@@ -32,5 +32,6 @@
     "required_community_standards": ["schema.org"],
 
     "check_access_level": true,
-    "i2_namespace_check": true
+    "i2_namespace_check": true,
+    "r1_3_cap_at_partial": true
 }

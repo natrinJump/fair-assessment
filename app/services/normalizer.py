@@ -85,6 +85,11 @@ def extract_jsonld_extras(jsonld: dict) -> dict:
     if detected_vocabs:
         extras["_jsonld_vocabularies"] = ", ".join(detected_vocabs)
 
+    # After the existing code that sets _jsonld_vocabularies, add:
+    ctx = jsonld.get("@context")
+    if isinstance(ctx, str) and ctx.strip():
+        extras["_jsonld_context"] = ctx.strip()
+
     # Extract encoding format from JSON-LD
     fmt = (
         jsonld.get("encodingFormat") or
