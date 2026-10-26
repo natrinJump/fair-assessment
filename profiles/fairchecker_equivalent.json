@@ -16,7 +16,7 @@
     "check_rdf_triples": true,
 
     "require_dcat_properties": true,
-    "min_url_authorities": 3,
+    "min_url_authorities": 2,
 
     "accepted_licenses": ["cc-by", "cc0", "cc-by-sa", "mit", "apache"],
     "required_license": null,
@@ -31,6 +31,6 @@
     "community_standard": null,
     "required_community_standards": ["schema.org"],
 
-    "check_access_level": false,
-    "i2_namespace_check": false
+    "check_access_level": true,
+    "i2_namespace_check": true
 }
