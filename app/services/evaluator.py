@@ -494,14 +494,20 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             missing.append(field)
 
     if not missing:
+        dcat_ok = not profile.require_dcat_properties or "confirmed" in dcat_note
         return MetricResult(
             metric_id="F2",
             principle="F",
             priority="essential",
-            status="pass",
-            description="All required metadata fields are present",
+            status="pass" if dcat_ok else "partial",
+            description=(
+                "All required metadata fields are present"
+                if dcat_ok
+                else "All required metadata fields are present but no DCAT/schema.org properties detected in structured metadata"
+            ),
             evidence=f"Present: {', '.join(present)}" + dcat_note
         )
+    
     if present:
         custom_missing = [f for f in missing
                           if f in profile.custom_metadata_fields]
