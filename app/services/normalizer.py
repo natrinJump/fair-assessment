@@ -236,11 +236,17 @@ def normalize_datacite(raw: dict, doi: str,
     _access_terms = ["open", "public", "restricted", "closed", "embargoed",
                      "access", "openaccess", "eu-repo"]
     for r in rights:
-        r_text = (r.get("rights") or r.get("rightsIdentifier") or
-                  r.get("rightsUri") or "").lower()
+        # Join all fields — rightsUri may carry access indicators
+        # (e.g. "info:eu-repo/semantics/openAccess") even when the
+        # human-readable "rights" text does not.
+        r_parts = [r.get("rights", ""), r.get("rightsIdentifier", ""),
+                r.get("rightsUri", "")]
+        r_text = " ".join(p for p in r_parts if p).lower()
         if any(t in r_text for t in _access_terms):
-            custom["access_rights"] = r_text
-            custom["access_level"]  = r_text
+            r_val = (r.get("rights") or r.get("rightsIdentifier") or
+                    r.get("rightsUri") or r_text)
+            custom["access_rights"] = r_val.lower()
+            custom["access_level"]  = r_val.lower()
             break
     # Some DataCite-based repos expose a top-level access attribute
     top_access = attrs.get("access") or attrs.get("accessLevel")
