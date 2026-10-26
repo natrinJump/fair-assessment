@@ -16,7 +16,7 @@
     "check_rdf_triples": true,
 
     "require_dcat_properties": true,
-    "min_url_authorities": 2,
+    "min_url_authorities": 3,
 
     "accepted_licenses": ["cc-by", "cc0", "cc-by-sa", "mit", "apache"],
     "required_license": null,
