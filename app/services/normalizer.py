@@ -326,6 +326,18 @@ def normalize_datacite(raw: dict, doi: str,
                 if content_size and "file_size" not in custom:
                     custom["file_size"] = str(content_size)
 
+    # Last resort: infer open access from a Creative Commons open license.
+    # F-UJI detects access_level from conditionsOfAccess in landing-page JSON-LD;
+    # if ProFAIR hasn't fetched that, infer from the license URL instead.
+    if "access_level" not in custom and license_url:
+        _cc_open = [
+            "creativecommons.org/licenses/by",
+            "creativecommons.org/publicdomain/zero",
+        ]
+        if any(p in license_url.lower() for p in _cc_open):
+            custom["access_level"]  = "open"
+            custom["access_rights"] = "open"
+
     core = CoreMetadata(
         identifier=identifier,
         title=title,
