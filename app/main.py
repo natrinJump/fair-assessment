@@ -467,6 +467,55 @@ def delete_run(id: int):
     return {"message": "Assessment deleted"}
 
 
+@app.get("/history/run/{id}/export/turtle")
+def export_history_run_turtle(id: int):
+    """Export the FIP Turtle generated from the *snapshot* saved with this run.
+    Unlike /profiles/{name}/export/turtle, this always uses the exact profile
+    configuration that was active when the assessment ran — even if the live
+    profile has been edited since.
+    """
+    from fastapi.responses import Response
+    run = get_assessment_by_id(id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Assessment run not found")
+    snap = run.get("profile_snapshot") or {}
+    if not snap:
+        raise HTTPException(status_code=400,
+                            detail="No profile snapshot stored for this run")
+    turtle = generate_turtle(snap)
+    safe_name = (snap.get("name") or f"run_{id}").replace(" ", "_")
+    return Response(
+        content=turtle,
+        media_type="text/turtle",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{safe_name}_Run{id}_FIP.ttl"'
+        }
+    )
+
+
+@app.post("/history/run/{id}/restore-profile")
+def restore_profile_from_history(id: int):
+    """Overwrite the live profile with the snapshot stored in a historical run.
+    This lets users reproduce the exact assessment conditions from a past run.
+    """
+    run = get_assessment_by_id(id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Assessment run not found")
+    snap = run.get("profile_snapshot") or {}
+    if not snap or not snap.get("name"):
+        raise HTTPException(status_code=400,
+                            detail="No profile snapshot available for this run")
+    name = snap["name"]
+    restore_data = {k: v for k, v in snap.items()
+                    if k not in ("id",)}          # keep "name" so service finds it
+    updated = update_profile(name, restore_data)
+    if not updated:
+        raise HTTPException(status_code=404,
+                            detail=f"Profile '{name}' not found in database")
+    return updated
+
+
 @app.get("/history/{doi:path}")
 def get_doi_history(doi: str):
     history = get_history_by_doi(doi)

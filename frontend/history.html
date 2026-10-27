@@ -20,6 +20,8 @@
         .btn-sm-danger:hover { background: #fce8e6; }
         .btn-sm-fip { background: white; color: #0f9d58; border: 1px solid #0f9d58; }
         .btn-sm-fip:hover { background: #e6f4ea; }
+        .btn-sm-restore { background: white; color: #7b5ea7; border: 1px solid #7b5ea7; }
+        .btn-sm-restore:hover { background: #f3eeff; }
         .run-details { display: none; padding: 1rem; border-top: 1px solid #e0e0e0; background: #fafafa; }
         .run-details.show { display: block; }
         .mini-scores { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
@@ -182,6 +184,7 @@ function loadHistory() {
                 html += '<div class="run-actions no-print" onclick="event.stopPropagation()">';
                 html += '<button type="button" class="btn-sm btn-sm-secondary" onclick="exportJSON(' + run.id + ')">JSON</button>';
                 html += '<button type="button" class="btn-sm btn-sm-fip" onclick="exportRunTurtle(' + run.id + ')">FIP</button>';
+                html += '<button type="button" class="btn-sm btn-sm-restore" onclick="restoreProfile(' + run.id + ')" title="Restore the profile to the exact settings used in this run">Restore Profile</button>';
                 html += '<button type="button" class="btn-sm btn-sm-danger" onclick="deleteRun(' + run.id + ')">Delete</button>';
                 html += '</div></div></div>';
                 html += '<div class="run-details" id="run-details-' + run.id + '">' + renderRunDetails(run) + '</div>';
@@ -327,15 +330,20 @@ function exportJSON(id) {
 }
 
 function exportRunTurtle(id) {
+    // Uses /history/run/{id}/export/turtle so the turtle is generated from
+    // the *snapshot* saved with this run — not from the current live profile.
     var run = allHistory.find(function(h) { return h.id === id; });
     if (!run || !run.profile_snapshot || !run.profile_snapshot.name) {
         alert('No profile snapshot available for this run.');
         return;
     }
-    var snap = run.profile_snapshot;
-    fetch(API + '/profiles/' + encodeURIComponent(snap.name) + '/export/turtle')
-        .then(function(r) { return r.blob(); })
+    fetch(API + '/history/run/' + id + '/export/turtle')
+        .then(function(r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+            return r.blob();
+        })
         .then(function(blob) {
+            var snap = run.profile_snapshot;
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
@@ -343,6 +351,25 @@ function exportRunTurtle(id) {
             a.click();
         })
         .catch(function(e) { alert('Export failed: ' + e.message); });
+}
+
+function restoreProfile(id) {
+    var run = allHistory.find(function(h) { return h.id === id; });
+    if (!run || !run.profile_snapshot || !run.profile_snapshot.name) {
+        alert('No profile snapshot available for this run.');
+        return;
+    }
+    var name = run.profile_snapshot.name;
+    if (!confirm('Restore profile "' + name + '" to the exact settings used in Run ' + id + '?\n\nThis will overwrite the current live profile.')) return;
+    fetch(API + '/history/run/' + id + '/restore-profile', { method: 'POST' })
+        .then(function(r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+            return r.json();
+        })
+        .then(function() {
+            alert('Profile "' + name + '" has been restored to the settings from Run ' + id + '.');
+        })
+        .catch(function(e) { alert('Restore failed: ' + e.message); });
 }
 
 function exportAllJSON(doi) {

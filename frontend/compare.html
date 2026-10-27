@@ -156,6 +156,13 @@
             </h3>
             <div id="compare-table"></div>
 
+            <div style="margin-top:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+                <button type="button" class="btn btn-secondary"
+                    onclick="exportCompareCSV()">&#8595; Download CSV</button>
+                <button type="button" class="btn btn-secondary"
+                    onclick="exportCompareJSON()">&#8595; Download JSON</button>
+            </div>
+
             <p style="font-size:0.8rem;color:#888;margin-top:1rem">
                 All comparison runs have been saved to your
                 <a href="history.html">History</a> page.
@@ -671,6 +678,84 @@ function renderComparison(doi) {
     document.getElementById('compare-table').innerHTML =
         '<table class="compare-table"><tr><th>Metric</th>' +
         headerCells + '</tr>' + metricRows + '</table>';
+}
+
+function exportCompareCSV() {
+    if (!comparisonResults || comparisonResults.length === 0) {
+        alert('No comparison results to export.');
+        return;
+    }
+    var profiles = comparisonResults.map(function(r) { return r.profile_name; });
+    var doi = comparisonResults[0].doi || '';
+
+    // Collect all metric IDs in order
+    var metricIds = [];
+    var metricMap = {};
+    comparisonResults.forEach(function(r) {
+        (r.results || []).forEach(function(m) {
+            if (!metricMap[m.metric_id]) {
+                metricMap[m.metric_id] = m.description || '';
+                metricIds.push(m.metric_id);
+            }
+        });
+    });
+
+    // Header row
+    var rows = [['DOI', doi]];
+    rows.push([]);
+    var header = ['Metric', 'Description'].concat(profiles);
+    rows.push(header);
+
+    // Score summary
+    rows.push(['Overall Score', ''].concat(comparisonResults.map(function(r) { return r.overall_score != null ? r.overall_score.toFixed(1) : ''; })));
+    rows.push(['F Score', ''].concat(comparisonResults.map(function(r) { return r.f_score != null ? r.f_score.toFixed(1) : ''; })));
+    rows.push(['A Score', ''].concat(comparisonResults.map(function(r) { return r.a_score != null ? r.a_score.toFixed(1) : ''; })));
+    rows.push(['I Score', ''].concat(comparisonResults.map(function(r) { return r.i_score != null ? r.i_score.toFixed(1) : ''; })));
+    rows.push(['R Score', ''].concat(comparisonResults.map(function(r) { return r.r_score != null ? r.r_score.toFixed(1) : ''; })));
+    rows.push([]);
+
+    // Per-metric rows
+    metricIds.forEach(function(mid) {
+        var desc = metricMap[mid];
+        var cells = comparisonResults.map(function(r) {
+            var m = (r.results || []).find(function(x) { return x.metric_id === mid; });
+            return m ? m.status : 'n/a';
+        });
+        rows.push([mid, desc].concat(cells));
+    });
+
+    var csv = rows.map(function(row) {
+        return row.map(function(cell) {
+            var s = String(cell == null ? '' : cell);
+            if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+                s = '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+        }).join(',');
+    }).join('\n');
+
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'fair-compare-' + doi.replace(/\//g, '-') + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function exportCompareJSON() {
+    if (!comparisonResults || comparisonResults.length === 0) {
+        alert('No comparison results to export.');
+        return;
+    }
+    var doi = comparisonResults[0].doi || '';
+    var blob = new Blob([JSON.stringify(comparisonResults, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'fair-compare-' + doi.replace(/\//g, '-') + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 loadProfiles();
