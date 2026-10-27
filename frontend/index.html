@@ -263,6 +263,91 @@
                 placeholder="e.g. OBO Foundry, CF Conventions, DDI">
         </div>
 
+        <div class="form-row">
+            <label>Required Community Standards
+                <span style="font-size:0.75rem;color:#888;font-weight:400">
+                (R1.3 — list of standards that must be declared)</span>
+            </label>
+            <div class="tag-input-row">
+                <input type="text" id="new-comm-std-input"
+                    placeholder="e.g. datacite, iso19115">
+                <button type="button" class="btn btn-secondary"
+                    onclick="addTag('communityStandards','new-comm-std-input','tags-comm-std')">
+                    Add
+                </button>
+            </div>
+            <div class="tags" id="tags-comm-std"></div>
+        </div>
+
+        <!-- Tool behaviour flags -->
+        <details style="margin-top:0.75rem">
+            <summary style="font-size:0.875rem;font-weight:600;cursor:pointer;
+                color:#444;padding:0.4rem 0;user-select:none">
+                ▸ Tool Behaviour Flags
+                <span style="font-size:0.75rem;font-weight:400;color:#888">
+                (advanced — controls how evaluation is performed)</span>
+            </summary>
+            <div style="padding:0.6rem 0 0;display:flex;flex-direction:column;gap:0.5rem">
+
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.85rem">
+                    <input type="checkbox" id="new-check-access-level" style="margin-top:2px">
+                    <span><strong>Require explicit access level</strong>
+                        <span style="color:#888;display:block;font-size:0.78rem">
+                        A1: metadata must declare an access_level field (F-UJI FsF-A1-01M)</span>
+                    </span>
+                </label>
+
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.85rem">
+                    <input type="checkbox" id="new-a1-license-fallback" style="margin-top:2px">
+                    <span><strong>Accept open licence as access evidence</strong>
+                        <span style="color:#888;display:block;font-size:0.78rem">
+                        A1: CC-BY / CC0 strings in access fields count as valid access info (FAIR-Checker behaviour)</span>
+                    </span>
+                </label>
+
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.85rem">
+                    <input type="checkbox" id="new-require-dcat" style="margin-top:2px">
+                    <span><strong>Require DCAT properties</strong>
+                        <span style="color:#888;display:block;font-size:0.78rem">
+                        F2: metadata must include dcat:distribution or dcat:accessURL to pass (FAIR-Checker behaviour)</span>
+                    </span>
+                </label>
+
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.85rem">
+                    <input type="checkbox" id="new-i2-namespace-check" style="margin-top:2px">
+                    <span><strong>Vocabulary detection by namespace URI</strong>
+                        <span style="color:#888;display:block;font-size:0.78rem">
+                        I2: detect vocabularies by scanning namespace URIs instead of keywords (F-UJI FsF-I2-01M)</span>
+                    </span>
+                </label>
+
+                <div class="form-row" style="margin-bottom:0">
+                    <label style="font-size:0.85rem"><strong>Excluded vocabularies</strong>
+                        <span style="color:#888;font-size:0.78rem;font-weight:400">
+                        — namespaces to ignore in the URI scan (e.g. schema.org, rdf, dublin core)</span>
+                    </label>
+                    <div class="tag-input-row">
+                        <input type="text" id="new-excl-vocab-input"
+                            placeholder="e.g. schema.org, rdf">
+                        <button type="button" class="btn btn-secondary"
+                            onclick="addTag('excludedVocabs','new-excl-vocab-input','tags-excl-vocab')">
+                            Add
+                        </button>
+                    </div>
+                    <div class="tags" id="tags-excl-vocab"></div>
+                </div>
+
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.85rem">
+                    <input type="checkbox" id="new-r1-3-cap" style="margin-top:2px">
+                    <span><strong>Cap R1.3 at partial even when standard found</strong>
+                        <span style="color:#888;display:block;font-size:0.78rem">
+                        R1.3: never award a full pass for community standard — max is partial (FAIR-Checker behaviour)</span>
+                    </span>
+                </label>
+
+            </div>
+        </details>
+
         <div style="display:flex;gap:0.75rem;margin-top:1rem;
             justify-content:flex-end">
             <button type="button" class="btn btn-secondary"
@@ -277,20 +362,34 @@
 <script>
 let selectedProfile = null;
 let profiles = [];
-let newProfileData = { identifiers: [], metadata: [], customMetadata: [], formats: [], licenses: [] };
+let newProfileData = {
+    identifiers: [], metadata: [], customMetadata: [],
+    formats: [], licenses: [], communityStandards: [], excludedVocabs: []
+};
+
+// Stable sort order — predefined profiles always appear in this fixed sequence;
+// custom profiles follow alphabetically so newly created ones never shuffle others.
+const PREFERRED_ORDER = [
+    'generic', 'agriculture', 'life_sciences', 'environmental', 'social_sciences',
+    'fuji_equivalent', 'fairchecker_equivalent'
+];
+
+function sortProfiles(list) {
+    return list.slice().sort(function(a, b) {
+        var ai = PREFERRED_ORDER.indexOf(a.domain);
+        var bi = PREFERRED_ORDER.indexOf(b.domain);
+        // Known domain → fixed slot; unknown → sort alphabetically after them
+        if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+    });
+}
 
 async function loadProfiles() {
     try {
-        profiles = await apiFetch('/profiles');
-        // Sort: predefined profiles first in preferred order, custom profiles after
-        const preferredOrder = ['generic', 'agriculture', 'life_sciences', 'environmental', 'social_sciences'];
-        profiles.sort(function(a, b) {
-            var ai = preferredOrder.indexOf(a.domain);
-            var bi = preferredOrder.indexOf(b.domain);
-            if (ai === -1) ai = 999;
-            if (bi === -1) bi = 999;
-            return ai - bi;
-        });
+        const raw = await apiFetch('/profiles');
+        profiles = sortProfiles(raw);
         renderGrid();
     } catch(e) {
         document.getElementById('profile-grid').innerHTML =
@@ -369,7 +468,7 @@ async function deleteSelected() {
         selectedProfile = null;
         document.getElementById('profile-summary').style.display = 'none';
         document.getElementById('action-buttons').style.display = 'none';
-        profiles = await apiFetch('/profiles');
+        profiles = sortProfiles(await apiFetch('/profiles'));
         renderGrid();
     } catch(e) {
         alert('Delete failed: ' + e.message);
@@ -461,7 +560,7 @@ async function importTurtle(event) {
             body: JSON.stringify(data)
         });
         alert('Profile imported as "' + created.name + '"');
-        profiles = await apiFetch('/profiles');
+        profiles = sortProfiles(await apiFetch('/profiles'));
         renderGrid();
         setTimeout(() => selectProfile(created.id), 100);
     } catch(e) {
@@ -472,7 +571,10 @@ async function importTurtle(event) {
 }
 
 function openCreateModal() {
-    newProfileData = { identifiers: [], metadata: [], customMetadata: [], formats: [], licenses: [] };
+    newProfileData = {
+        identifiers: [], metadata: [], customMetadata: [],
+        formats: [], licenses: [], communityStandards: [], excludedVocabs: []
+    };
     document.getElementById('new-name').value = '';
     document.getElementById('new-domain').value = '';
     document.getElementById('new-vocab').value = '';
@@ -484,6 +586,14 @@ function openCreateModal() {
     document.getElementById('tags-custom-meta').innerHTML = '';
     document.getElementById('tags-fmt').innerHTML = '';
     document.getElementById('tags-licenses').innerHTML = '';
+    document.getElementById('tags-comm-std').innerHTML = '';
+    document.getElementById('tags-excl-vocab').innerHTML = '';
+    // Reset behaviour flags
+    document.getElementById('new-check-access-level').checked = false;
+    document.getElementById('new-a1-license-fallback').checked = false;
+    document.getElementById('new-require-dcat').checked = false;
+    document.getElementById('new-i2-namespace-check').checked = false;
+    document.getElementById('new-r1-3-cap').checked = false;
     document.getElementById('create-message').innerHTML = '';
     document.getElementById('create-modal').classList.add('show');
 }
@@ -571,19 +681,35 @@ async function createProfile() {
                 document.getElementById('new-required-license').value.trim() || null,
             community_standard:
                 document.getElementById('new-community-standard').value.trim() || null,
+            required_community_standards: newProfileData.communityStandards,
             custom_identifiers: [],
             custom_vocabularies: [],
             required_provenance_fields: ['creator', 'provenance_date'],
             check_discoverability: true,
             require_related_resources: false,
+            // Tool behaviour flags
+            check_access_level:
+                document.getElementById('new-check-access-level').checked,
+            a1_license_fallback:
+                document.getElementById('new-a1-license-fallback').checked,
+            require_dcat_properties:
+                document.getElementById('new-require-dcat').checked,
+            i2_namespace_check:
+                document.getElementById('new-i2-namespace-check').checked,
+            excluded_vocabularies: newProfileData.excludedVocabs,
+            r1_3_cap_at_partial:
+                document.getElementById('new-r1-3-cap').checked,
         };
         const created = await apiFetch('/profiles', {
             method: 'POST',
             body: JSON.stringify(data)
         });
         closeCreateModal();
-        newProfileData = { identifiers: [], metadata: [], customMetadata: [], formats: [], licenses: [] };
-        profiles = await apiFetch('/profiles');
+        newProfileData = {
+            identifiers: [], metadata: [], customMetadata: [],
+            formats: [], licenses: [], communityStandards: [], excludedVocabs: []
+        };
+        profiles = sortProfiles(await apiFetch('/profiles'));
         renderGrid();
         setTimeout(() => selectProfile(created.id), 100);
     } catch(e) {
@@ -594,11 +720,13 @@ async function createProfile() {
 
 // Tag input: Enter or comma triggers add
 const tagInputs = [
-    { type: 'identifiers',   inputId: 'new-id-input',          tagsId: 'tags-id' },
-    { type: 'metadata',      inputId: 'new-meta-input',         tagsId: 'tags-meta' },
-    { type: 'customMetadata',inputId: 'new-custom-meta-input',  tagsId: 'tags-custom-meta' },
-    { type: 'formats',       inputId: 'new-fmt-input',          tagsId: 'tags-fmt' },
-    { type: 'licenses',      inputId: 'new-license-input',      tagsId: 'tags-licenses' },
+    { type: 'identifiers',       inputId: 'new-id-input',          tagsId: 'tags-id' },
+    { type: 'metadata',          inputId: 'new-meta-input',         tagsId: 'tags-meta' },
+    { type: 'customMetadata',    inputId: 'new-custom-meta-input',  tagsId: 'tags-custom-meta' },
+    { type: 'formats',           inputId: 'new-fmt-input',          tagsId: 'tags-fmt' },
+    { type: 'licenses',          inputId: 'new-license-input',      tagsId: 'tags-licenses' },
+    { type: 'communityStandards',inputId: 'new-comm-std-input',     tagsId: 'tags-comm-std' },
+    { type: 'excludedVocabs',    inputId: 'new-excl-vocab-input',   tagsId: 'tags-excl-vocab' },
 ];
 tagInputs.forEach(function(t) {
     const el = document.getElementById(t.inputId);
