@@ -971,25 +971,41 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     # ── F-UJI style: namespace URI detection ──────────────────────
     if profile.i2_namespace_check:
         found_ns: list = []
+    
+        # First pass: API metadata
         for vocab_name, uris in KNOWN_VOCAB_NAMESPACES.items():
             if any(uri.lower() in search_text for uri in uris):
                 found_ns.append(vocab_name)
+
+        # Second pass: landing page (if first pass found nothing)
+        if not found_ns:
+            url = metadata.core.access_url
+            if url:
+                try:
+                    import requests as _req
+                    lp = _req.get(
+                        url,
+                        headers={"User-Agent": "ProFAIR/1.0"},
+                        timeout=8,
+                    )
+                    if "text/html" in lp.headers.get("content-type", "").lower():
+                        lp_text = lp.text.lower()
+                        for vocab_name, uris in KNOWN_VOCAB_NAMESPACES.items():
+                            if any(uri.lower() in lp_text for uri in uris):
+                                found_ns.append(vocab_name)
+                except Exception:
+                    pass
 
         if found_ns:
             return MetricResult(
                 metric_id="I2",
                 principle="I",
                 priority="important",
-                status="partial",
-                description=(
-                    "Metadata uses registered semantic vocabulary "
-                    "namespaces"
-                ),
-                evidence=(
-                    f"Registered namespaces detected: "
-                    f"{', '.join(found_ns)}"
-                )
+                status="pass",
+                description="Metadata uses registered semantic vocabulary namespaces",
+                evidence=f"Registered namespaces detected: {', '.join(found_ns)}"
             )
+
         return MetricResult(
             metric_id="I2",
             principle="I",
