@@ -11,6 +11,7 @@
     "custom_vocabularies": [],
     "min_vocab_fairness_level": "none",
     "require_related_resources": false,
+    "a1_license_fallback": true,
 
     "i1_check_source": "landing_page",
     "check_rdf_triples": true,
