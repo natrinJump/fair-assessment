@@ -53,7 +53,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -65,10 +65,9 @@
         </p>
         <div style="display:flex;gap:0.75rem;align-items:center">
             <input type="text" id="doi-filter"
-                placeholder="Filter by DOI (leave empty to see all)"
-                style="flex:1;margin-bottom:0">
-            <button type="button" class="btn btn-primary"
-                onclick="loadHistory()">Search</button>
+                placeholder="Search by DOI or URL (partial match works)"
+                style="flex:1;margin-bottom:0"
+                oninput="loadHistory()">
             <button type="button" class="btn btn-secondary"
                 style="color:#d93025;border-color:#d93025"
                 onclick="clearAll()">Clear All History</button>

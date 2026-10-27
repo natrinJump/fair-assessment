@@ -697,6 +697,7 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 recommendation=(
                     "Add an explicit access_level or access_rights field to "
                     "metadata (e.g. access_level: open). "
+                    "F-UJI (FsF-A1-01M-1) requires this field to be present."
                 )
             )
         return MetricResult(
@@ -1894,6 +1895,7 @@ def run_assessment(metadata: NormalizedMetadata,
 
     return AssessmentReport(
         doi=metadata.raw_identifier,
+        title=metadata.core.title or "",
         profile_name=profile.name,
         overall_score=overall,
         f_score=f_score,

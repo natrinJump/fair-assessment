@@ -90,11 +90,11 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -117,8 +117,10 @@
         <!-- Tab: DOI -->
         <div id="tab-doi" class="tab-content active">
             <div class="input-row">
-                <input type="text" id="doi-input"
-                    placeholder="Enter DOI, e.g. 10.5281/zenodo.3490058 or full URL">
+                <input type="text" id="doi-input" list="doi-history-list"
+                    placeholder="Enter DOI, e.g. 10.5281/zenodo.3490058 or full URL"
+                    autocomplete="off">
+                <datalist id="doi-history-list"></datalist>
                 <button type="button" class="btn btn-primary" onclick="runDOIAssessment()">
                     Run Assessment
                 </button>
@@ -655,8 +657,11 @@ async function loadProfiles() {
 // ── Render results ─────────────────────────────────────────────
 function renderReport(report) {
     document.getElementById('results-container').style.display = 'block';
+    var label = report.title
+        ? report.title + ' (' + report.doi + ')'
+        : report.doi;
     document.getElementById('result-doi').textContent =
-        'Dataset: ' + report.doi + ' · Profile: ' + report.profile_name;
+        'Dataset: ' + label + ' · Profile: ' + report.profile_name;
 
     document.getElementById('score-overall').textContent = formatScore(report.overall_score);
     document.getElementById('score-f').textContent       = formatScore(report.f_score);
@@ -813,6 +818,26 @@ function saveToLocalHistory(report) {
 
 // ── Init ───────────────────────────────────────────────────────
 loadProfiles();
+
+// Populate datalist with unique DOIs from assessment history
+function populateDoiHistory() {
+    try {
+        var history = getLocalHistory();
+        var seen = new Set();
+        var unique = history
+            .map(function(h) { return h.doi; })
+            .filter(function(d) {
+                if (!d || seen.has(d)) return false;
+                seen.add(d);
+                return true;
+            });
+        var dl = document.getElementById('doi-history-list');
+        dl.innerHTML = unique
+            .map(function(d) { return '<option value="' + d.replace(/"/g, '&quot;') + '">'; })
+            .join('');
+    } catch(e) { /* silently ignore if history unavailable */ }
+}
+populateDoiHistory();
 
 // Pre-fill DOI if navigated from history
 const prefill = localStorage.getItem('prefillDoi');

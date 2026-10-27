@@ -139,6 +139,7 @@ class MetricResult(BaseModel):
 
 class AssessmentReport(BaseModel):
     doi: str
+    title: str = ""          # dataset title, empty when not available
     profile_name: str
     overall_score: float
     f_score: float
