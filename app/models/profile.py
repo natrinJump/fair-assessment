@@ -122,9 +122,6 @@ class Profile(BaseModel):
     # namespace pattern table (Schema.org, DataCite, DDI, Darwin Core, etc.).
     required_community_standards: list[str] = []
 
-    # R1.3 — FAIR-Checker style: cap result at "partial" even when a standard
-    # is found (FAIR-Checker only does weak keyword check, not OLS/BioPortal)
-    r1_3_cap_at_partial: bool = False
 
 
 class MetricResult(BaseModel):

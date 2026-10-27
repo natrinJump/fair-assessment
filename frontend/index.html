@@ -337,14 +337,6 @@
                     <div class="tags" id="tags-excl-vocab"></div>
                 </div>
 
-                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.85rem">
-                    <input type="checkbox" id="new-r1-3-cap" style="margin-top:2px">
-                    <span><strong>Cap R1.3 at partial even when standard found</strong>
-                        <span style="color:#888;display:block;font-size:0.78rem">
-                        R1.3: never award a full pass for community standard — max is partial (FAIR-Checker behaviour)</span>
-                    </span>
-                </label>
-
             </div>
         </details>
 
@@ -593,7 +585,6 @@ function openCreateModal() {
     document.getElementById('new-a1-license-fallback').checked = false;
     document.getElementById('new-require-dcat').checked = false;
     document.getElementById('new-i2-namespace-check').checked = false;
-    document.getElementById('new-r1-3-cap').checked = false;
     document.getElementById('create-message').innerHTML = '';
     document.getElementById('create-modal').classList.add('show');
 }
@@ -697,8 +688,6 @@ async function createProfile() {
             i2_namespace_check:
                 document.getElementById('new-i2-namespace-check').checked,
             excluded_vocabularies: newProfileData.excludedVocabs,
-            r1_3_cap_at_partial:
-                document.getElementById('new-r1-3-cap').checked,
         };
         const created = await apiFetch('/profiles', {
             method: 'POST',

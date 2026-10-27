@@ -53,8 +53,6 @@ class ProfileDB(SQLModel, table=True):
     r1_check_file_type_info: bool = False
     # R1.3 — list of required community standards (JSON array of strings)
     required_community_standards: str = "[]"
-    # R1.3 — FAIR-Checker style: cap at partial even when standard found
-    r1_3_cap_at_partial: bool = False
 
 
 class AssessmentHistoryDB(SQLModel, table=True):

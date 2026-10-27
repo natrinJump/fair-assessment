@@ -41,7 +41,6 @@ def _db_to_dict(p: ProfileDB) -> dict:
         "r1_check_resource_type": p.r1_check_resource_type,
         "r1_check_file_type_info": p.r1_check_file_type_info,
         "required_community_standards": json.loads(p.required_community_standards),
-        "r1_3_cap_at_partial": p.r1_3_cap_at_partial,
     }
 
 
@@ -85,7 +84,6 @@ def _dict_to_db(data: dict) -> ProfileDB:
         r1_check_file_type_info=data.get("r1_check_file_type_info", False),
         required_community_standards=json.dumps(
             data.get("required_community_standards", [])),
-        r1_3_cap_at_partial=data.get("r1_3_cap_at_partial", False),
     )
 
 
@@ -189,7 +187,6 @@ def update_profile(name: str, data: dict) -> dict:
             "r1_check_measured_variables",
             "r1_check_resource_type",
             "r1_check_file_type_info",
-            "r1_3_cap_at_partial",
         ]:
             if field in data:
                 setattr(p, field, data[field])
