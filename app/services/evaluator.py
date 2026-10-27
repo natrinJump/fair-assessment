@@ -688,6 +688,16 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             description="Metadata is accessible via HTTP/HTTPS",
             evidence=f"Access URL: {url}"
         )
+
+        # At the end of check_a1(), before returning fail, add:
+    if not access_found and getattr(profile, "a1_license_fallback", False):
+        license_val = (metadata.custom.get("license_url") or
+                    metadata.custom.get("license") or "")
+        _cc_open = ["creativecommons.org/licenses/by",
+                    "creativecommons.org/publicdomain/zero"]
+        if any(p in license_val.lower() for p in _cc_open):
+            access_found = f"license (open): {license_val}"
+
     return MetricResult(
         metric_id="A1",
         principle="A",
