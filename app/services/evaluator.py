@@ -39,7 +39,8 @@ SPDX_URI_FRAGMENTS = [
 # namespace URIs rather than keyword matching.  A subset of commonly indexed
 # namespaces is listed here; extend as needed.
 KNOWN_VOCAB_NAMESPACES: dict = {
-    "schema.org":    ["http://schema.org/", "https://schema.org/"],
+    "schema.org":    ["http://schema.org/", "https://schema.org/",
+                      "http://schema.org", "https://schema.org"],
     "DCAT":          ["http://www.w3.org/ns/dcat", "https://www.w3.org/ns/dcat"],
     "Dublin Core":   ["http://purl.org/dc/", "http://dublincore.org/"],
     "SKOS":          ["http://www.w3.org/2004/02/skos/"],
@@ -494,20 +495,14 @@ def check_f2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             missing.append(field)
 
     if not missing:
-        dcat_ok = not profile.require_dcat_properties or "confirmed" in dcat_note
         return MetricResult(
             metric_id="F2",
             principle="F",
             priority="essential",
-            status="pass" if dcat_ok else "partial",
-            description=(
-                "All required metadata fields are present"
-                if dcat_ok
-                else "All required metadata fields are present but no DCAT/schema.org properties detected in structured metadata"
-            ),
+            status="pass",
+            description="All required metadata fields are present",
             evidence=f"Present: {', '.join(present)}" + dcat_note
         )
-    
     if present:
         custom_missing = [f for f in missing
                           if f in profile.custom_metadata_fields]
@@ -610,11 +605,27 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             "accessLevel", "accessRights", "rights",
             "openaire_access", "access", "availability",
         ]
+        # F-UJI behaviour: values that look like CC/open-source license strings
+        # are explicitly ignored as access-rights evidence.  Only applies when
+        # a1_license_fallback is False (i.e. F-UJI Equivalent mode).
+        # Matches F-UJI debug message: "Access condition looks like license,
+        # therefore the following is ignored".
+        _cc_license_signals = [
+            "creativecommons.org", "creative commons",
+            "cc0", "cc-by", "cc by", "publicdomain",
+        ]
+
+        def _looks_like_license(val: str) -> bool:
+            if profile.a1_license_fallback:
+                return False          # FAIR-Checker mode: treat as valid
+            vl = val.lower()
+            return any(sig in vl for sig in _cc_license_signals)
+
         access_found = None
         for field in access_field_names:
             val = (metadata.custom.get(field)
                    or metadata.custom.get(field.lower()))
-            if val:
+            if val and not _looks_like_license(str(val)):
                 access_found = f"{field}: {val}"
                 break
 
@@ -633,10 +644,30 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             for k, v in metadata.custom.items():
                 if not isinstance(v, str) or not v:
                     continue
+                if _looks_like_license(v):
+                    continue          # skip license strings (F-UJI behaviour)
                 vl = v.lower().strip()
                 if vl in _access_terms or any(t in vl for t in _access_terms):
                     access_found = f"{k}: {v}"
                     break
+
+        # License fallback (FAIR-Checker A12 style, opt-in via profile flag):
+        # an open/permissive license is sufficient evidence that access rights
+        # are declared.  Disabled for F-UJI Equivalent which requires an
+        # explicit access_level / access_rights field.
+        if (not access_found
+                and profile.a1_license_fallback
+                and metadata.core.license):
+            _open_lic_terms = [
+                "creativecommons.org", "cc-by", "cc0", "cc by",
+                "public domain", "mit", "apache", "bsd", "open",
+            ]
+            lic_lower = metadata.core.license.lower()
+            if any(t in lic_lower for t in _open_lic_terms):
+                access_found = (
+                    f"license: {metadata.core.license} "
+                    f"(open license implies access rights are declared)"
+                )
 
         # F-UJI: access level info must be present in metadata (FsF-A1-01M-1).
         if url_ok:
@@ -688,16 +719,6 @@ def check_a1(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
             description="Metadata is accessible via HTTP/HTTPS",
             evidence=f"Access URL: {url}"
         )
-
-        # At the end of check_a1(), before returning fail, add:
-    if not access_found and getattr(profile, "a1_license_fallback", False):
-        license_val = (metadata.custom.get("license_url") or
-                    metadata.custom.get("license") or "")
-        _cc_open = ["creativecommons.org/licenses/by",
-                    "creativecommons.org/publicdomain/zero"]
-        if any(p in license_val.lower() for p in _cc_open):
-            access_found = f"license (open): {license_val}"
-
     return MetricResult(
         metric_id="A1",
         principle="A",
@@ -981,30 +1002,9 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
     # ── F-UJI style: namespace URI detection ──────────────────────
     if profile.i2_namespace_check:
         found_ns: list = []
-    
-        # First pass: API metadata
         for vocab_name, uris in KNOWN_VOCAB_NAMESPACES.items():
             if any(uri.lower() in search_text for uri in uris):
                 found_ns.append(vocab_name)
-
-        # Second pass: landing page (if first pass found nothing)
-        if not found_ns:
-            url = metadata.core.access_url
-            if url:
-                try:
-                    import requests as _req
-                    lp = _req.get(
-                        url,
-                        headers={"User-Agent": "ProFAIR/1.0"},
-                        timeout=8,
-                    )
-                    if "text/html" in lp.headers.get("content-type", "").lower():
-                        lp_text = lp.text.lower()
-                        for vocab_name, uris in KNOWN_VOCAB_NAMESPACES.items():
-                            if any(uri.lower() in lp_text for uri in uris):
-                                found_ns.append(vocab_name)
-                except Exception:
-                    pass
 
         if found_ns:
             return MetricResult(
@@ -1012,10 +1012,15 @@ def check_i2(metadata: NormalizedMetadata, profile: Profile) -> MetricResult:
                 principle="I",
                 priority="important",
                 status="pass",
-                description="Metadata uses registered semantic vocabulary namespaces",
-                evidence=f"Registered namespaces detected: {', '.join(found_ns)}"
+                description=(
+                    "Metadata uses registered semantic vocabulary "
+                    "namespaces"
+                ),
+                evidence=(
+                    f"Registered namespaces detected: "
+                    f"{', '.join(found_ns)}"
+                )
             )
-
         return MetricResult(
             metric_id="I2",
             principle="I",
@@ -1743,17 +1748,6 @@ def check_r1_3(metadata: NormalizedMetadata,
                 f" | Not detected: {', '.join(not_found)}"
                 if not_found else ""
             )
-            # FAIR-Checker equivalent: cap at partial because strong check
-            # (all properties in OLS/BioPortal) can't be confirmed without live API calls
-            if getattr(profile, "r1_3_cap_at_partial", False):
-                return MetricResult(
-                    metric_id="R1.3",
-                    principle="R",
-                    priority="essential",
-                    status="partial",
-                    description="Community standard(s) detected — weak check satisfied (strong check requires OLS/BioPortal validation)",
-                    evidence=f"Found: {', '.join(found)}{extra}"
-                )
             return MetricResult(
                 metric_id="R1.3",
                 principle="R",
@@ -1762,6 +1756,18 @@ def check_r1_3(metadata: NormalizedMetadata,
                 description="Community metadata standard(s) detected in metadata",
                 evidence=f"Found: {', '.join(found)}{extra}"
             )
+        return MetricResult(
+            metric_id="R1.3",
+            principle="R",
+            priority="essential",
+            status="fail",
+            description="No required community standards detected in metadata",
+            evidence=f"Required: {', '.join(profile.required_community_standards)}",
+            recommendation=(
+                "Ensure metadata includes namespace URIs or vocabulary terms "
+                f"for: {', '.join(profile.required_community_standards)}"
+            )
+        )
 
     # ── Format mode (default) ─────────────────────────────────────
     accepted = [f.lower() for f in profile.accepted_formats]

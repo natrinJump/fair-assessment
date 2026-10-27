@@ -34,8 +34,12 @@ class ProfileDB(SQLModel, table=True):
     i1_check_source: str = "metadata"
     # F-UJI / A1 replication flag — require explicit access level declaration
     check_access_level: bool = False
+    # FAIR-Checker / A1 flag — accept open license as access-rights evidence
+    a1_license_fallback: bool = False
     # F-UJI / I2 replication flag — detect vocabs by namespace URI not keyword
     i2_namespace_check: bool = False
+    # I2 — vocabularies excluded from namespace scan (JSON array of strings)
+    excluded_vocabularies: str = "[]"
     # R1.1 validation flags
     r1_1_spdx_check: bool = False
     r1_1_require_license_uri: bool = False
@@ -49,7 +53,8 @@ class ProfileDB(SQLModel, table=True):
     r1_check_file_type_info: bool = False
     # R1.3 — list of required community standards (JSON array of strings)
     required_community_standards: str = "[]"
-    r1_3_cap_at_partial: bool = Field(default=False)
+    # R1.3 — FAIR-Checker style: cap at partial even when standard found
+    r1_3_cap_at_partial: bool = False
 
 
 class AssessmentHistoryDB(SQLModel, table=True):

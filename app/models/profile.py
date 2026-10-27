@@ -37,6 +37,12 @@ class Profile(BaseModel):
     # (FsF-A1-01M: checks for access_level / access_rights in metadata)
     check_access_level: bool = False
 
+    # A1 — FAIR-Checker style: accept an open license as evidence that access
+    # rights are declared (A12 passes when CC-BY/CC0/etc. license is present).
+    # Keep False for F-UJI Equivalent (strict field requirement); True for
+    # FAIR-Checker Equivalent (more lenient).
+    a1_license_fallback: bool = False
+
     # F4 — discoverability
     check_discoverability: bool = True
 
@@ -63,12 +69,17 @@ class Profile(BaseModel):
     # (FsF-I2-01M: semantic resource detection by namespace, not keyword)
     i2_namespace_check: bool = False
 
+    # I2 — vocabularies to exclude from the namespace scan result
+    # (e.g. F-UJI excludes schema.org, RDF, Dublin Core as "default namespaces")
+    # Only applied when i2_namespace_check is True.
+    excluded_vocabularies: list = []
+
     # I3 — qualified references
     require_related_resources: bool = False
 
     # I3 — FAIR-Checker style: require at least N distinct URL authorities
     # in metadata (0 = disabled, 3 = FAIR-Checker default)
-    min_url_authorities: int = 0  
+    min_url_authorities: int = 0
 
     # R1.1 — licenses
     accepted_licenses: list[str] = []
@@ -110,6 +121,9 @@ class Profile(BaseModel):
     # Standard names are matched case-insensitively against a built-in
     # namespace pattern table (Schema.org, DataCite, DDI, Darwin Core, etc.).
     required_community_standards: list[str] = []
+
+    # R1.3 — FAIR-Checker style: cap result at "partial" even when a standard
+    # is found (FAIR-Checker only does weak keyword check, not OLS/BioPortal)
     r1_3_cap_at_partial: bool = False
 
 

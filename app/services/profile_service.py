@@ -31,7 +31,9 @@ def _db_to_dict(p: ProfileDB) -> dict:
         # Configurability flags
         "i1_check_source": p.i1_check_source,
         "check_access_level": p.check_access_level,
+        "a1_license_fallback": p.a1_license_fallback,
         "i2_namespace_check": p.i2_namespace_check,
+        "excluded_vocabularies": json.loads(p.excluded_vocabularies),
         "r1_1_spdx_check": p.r1_1_spdx_check,
         "r1_1_require_license_uri": p.r1_1_require_license_uri,
         "r1_2_require_prov_ontology": p.r1_2_require_prov_ontology,
@@ -72,7 +74,9 @@ def _dict_to_db(data: dict) -> ProfileDB:
         # F-UJI replication flags
         i1_check_source=data.get("i1_check_source", "metadata"),
         check_access_level=data.get("check_access_level", False),
+        a1_license_fallback=data.get("a1_license_fallback", False),
         i2_namespace_check=data.get("i2_namespace_check", False),
+        excluded_vocabularies=json.dumps(data.get("excluded_vocabularies", [])),
         r1_1_spdx_check=data.get("r1_1_spdx_check", False),
         r1_1_require_license_uri=data.get("r1_1_require_license_uri", False),
         r1_2_require_prov_ontology=data.get("r1_2_require_prov_ontology", False),
@@ -153,6 +157,7 @@ def update_profile(name: str, data: dict) -> dict:
             "accepted_licenses",
             "required_provenance_fields",
             "required_community_standards",
+            "excluded_vocabularies",
         ]:
             if field in data:
                 setattr(p, field, json.dumps(data[field]))
@@ -176,6 +181,7 @@ def update_profile(name: str, data: dict) -> dict:
             "require_dcat_properties",
             # F-UJI flags
             "check_access_level",
+            "a1_license_fallback",
             "i2_namespace_check",
             "r1_1_spdx_check",
             "r1_1_require_license_uri",
@@ -183,12 +189,10 @@ def update_profile(name: str, data: dict) -> dict:
             "r1_check_measured_variables",
             "r1_check_resource_type",
             "r1_check_file_type_info",
+            "r1_3_cap_at_partial",
         ]:
             if field in data:
                 setattr(p, field, data[field])
-
-        if "r1_3_cap_at_partial" in data:
-            r1_3_cap_at_partial = data["r1_3_cap_at_partial"]
         # Integer fields
         if "min_url_authorities" in data:
             p.min_url_authorities = int(data["min_url_authorities"])
