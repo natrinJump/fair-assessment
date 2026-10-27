@@ -53,7 +53,7 @@
     <a href="history.html">History</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -358,15 +358,26 @@ function restoreProfile(id) {
         alert('No profile snapshot available for this run.');
         return;
     }
-    var name = run.profile_snapshot.name;
-    if (!confirm('Restore profile "' + name + '" to the exact settings used in Run ' + id + '?\n\nThis will overwrite the current live profile.')) return;
-    fetch(API + '/history/run/' + id + '/restore-profile', { method: 'POST' })
+    var snap = run.profile_snapshot;
+    var name = snap.name;
+    if (!confirm('Restore profile "' + name + '" to the exact settings used in this run?\n\nThis will overwrite the current live profile.')) return;
+
+    // The run is stored only in localStorage (not in the backend DB), so we
+    // restore by sending the snapshot directly as a profile update.
+    var payload = Object.assign({}, snap);
+    delete payload.id; // strip any client-side id field
+
+    fetch(API + '/profiles/' + encodeURIComponent(name), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
         .then(function(r) {
             if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
             return r.json();
         })
         .then(function() {
-            alert('Profile "' + name + '" has been restored to the settings from Run ' + id + '.');
+            alert('Profile "' + name + '" has been restored to the settings from this run.');
         })
         .catch(function(e) { alert('Restore failed: ' + e.message); });
 }
