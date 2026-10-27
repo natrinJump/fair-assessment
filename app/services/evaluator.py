@@ -1893,9 +1893,15 @@ def run_assessment(metadata: NormalizedMetadata,
     overall = round((f_score + a_score + i_score + r_score) / 4, 1)
     maturity, maturity_desc = get_maturity(overall)
 
+    # Clean the title: strip trailing hash:// identifiers that some sources
+    # (e.g. Zenodo) append to the dataset title string.
+    import re as _re
+    raw_title = metadata.core.title or ""
+    clean_title = _re.sub(r'\s*hash://\S+', '', raw_title).strip()
+
     return AssessmentReport(
         doi=metadata.raw_identifier,
-        title=metadata.core.title or "",
+        title=clean_title,
         profile_name=profile.name,
         overall_score=overall,
         f_score=f_score,
