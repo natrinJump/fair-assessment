@@ -90,11 +90,11 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
@@ -805,12 +805,18 @@ function downloadReport() {
 // ── Local history ──────────────────────────────────────────────
 // Uses addToLocalHistory() from app.js which writes to 'fair_history' key
 // read by history.html
-function saveToLocalHistory(report) {
+async function saveToLocalHistory(report) {
     try {
-        // Use the profile from the report itself, not localStorage
-        // which may hold a stale selection from the index page
-        const profileFromReport = { name: report.profile_name };
-        addToLocalHistory(report, profileFromReport);
+        // Fetch the full profile so the snapshot captures all settings,
+        // not just the name — restore on the history page needs this.
+        let profileSnapshot = { name: report.profile_name };
+        try {
+            const res = await apiFetch('/profiles/' + encodeURIComponent(report.profile_name));
+            if (res && res.name) profileSnapshot = res;
+        } catch(e) {
+            // Network issue — fall back to name-only snapshot
+        }
+        addToLocalHistory(report, profileSnapshot);
     } catch(e) {
         console.warn('Could not save to history', e);
     }
