@@ -82,6 +82,18 @@
         .maturity-Initial { background: #fef7e0; color: #b06000; }
         .maturity-Intermediate { background: #e8f0fe; color: #1557b0; }
         .maturity-Advanced { background: #e6f4ea; color: #137333; }
+        @media print {
+            .navbar,
+            #assessment-form {
+                display: none !important;
+            }
+            #results-container {
+                display: block !important;
+            }
+            body {
+                background: white !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -90,16 +102,16 @@
     <h1>ProFAIR</h1>
     <a href="index.html">Profiles</a>
     <a href="assess.html">Assess</a>
-    <a href="compare.html">Compare</a>
     <a href="history.html">History</a>
+    <a href="compare.html">Compare</a>
     <a href="about.html">About</a>
     <span style="font-size:0.72rem;opacity:0.75;margin-left:auto;padding-left:1rem;white-space:nowrap">
-        Free hosting &mdash; may take a moment to wake up
+        &#9889; Free hosting &mdash; may take a moment to wake up
     </span>
 </nav>
 
 <div class="container">
-    <div class="card">
+    <div class="card" id="assessment-form">
         <h2>Run Assessment</h2>
 
         <!-- Profile selector always visible -->
