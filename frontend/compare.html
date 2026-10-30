@@ -56,6 +56,12 @@
         .status-partial { color: #f4b400; font-weight: 600; }
         .status-fail { color: #db4437; font-weight: 600; }
         .best-score { background: #e6f4ea; }
+        @media print {
+            .navbar,
+            #compare-form { display: none !important; }
+            #compare-results { display: block !important; }
+            body { background: white !important; }
+        }
     </style>
 </head>
 <body>
@@ -73,7 +79,7 @@
 </nav>
 
 <div class="container">
-    <div class="card">
+    <div class="card" id="compare-form">
         <h2>Profile Comparison</h2>
         <p style="font-size:0.875rem;color:#666;margin-bottom:1rem">
             Run the same dataset against multiple profiles and compare
@@ -158,7 +164,7 @@
 
             <div style="margin-top:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap">
                 <button type="button" class="btn btn-secondary"
-                    onclick="exportCompareCSV()">&#8595; Download CSV</button>
+                    onclick="window.print()">&#128438; Print / Save PDF</button>
                 <button type="button" class="btn btn-secondary"
                     onclick="exportCompareJSON()">&#8595; Download JSON</button>
             </div>
@@ -632,8 +638,9 @@ function renderComparison(doi) {
     });
 
     var maxOverall = Math.max.apply(null, overallScores);
+    var isTie = overallScores.filter(function(s) { return s === maxOverall; }).length > 1;
     var summaryRows = comparisonResults.map(function(r) {
-        var isBest = r.report.overall_score === maxOverall;
+        var isBest = !isTie && r.report.overall_score === maxOverall;
         return '<tr' + (isBest ? ' class="best-score"' : '') + '>' +
             '<td><strong>' + r.profile.name + '</strong></td>' +
             '<td class="score-cell">' + formatScore(r.report.overall_score) + (isBest ? ' ★' : '') + '</td>' +
